@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>私密文件传输工具</title>
+    <!-- 引入 CryptoJS 库 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <style>
+        * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { padding: 20px; max-width: 500px; margin: 0 auto; background-color: #f7f9fc; color: #333; }
+        .card { background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        h2 { margin-top: 0; font-size: 18px; color: #444; border-bottom: 2px solid #eee; padding-bottom: 8px; }
+        label { display: block; margin: 12px 0 6px; font-weight: 600; font-size: 14px; }
+        input[type="password"], input[type="file"] {
+            width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; margin-bottom: 10px;
+        }
+        button {
+            width: 100%; padding: 12px; border: none; border-radius: 6px; background-color: #007aff; color: #fff;
+            font-size: 16px; font-weight: 600; cursor: pointer; transition: background 0.2s; margin-top: 5px;
+        }
+        button:active { background-color: #0056b3; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+        .btn-green { background-color: #34c759; }
+        .btn-green:active { background-color: #248a3d; }
+        #preview, #videoPreview { width: 100%; max-height: 400px; object-fit: contain; border-radius: 8px; margin-top: 10px; display: none; }
+        .tip { font-size: 12px; color: #888; margin-top: 4px; line-height: 1.5; }
+        .loading { color: #007aff; font-weight: bold; font-size: 14px; margin-top: 8px; display: none; text-align: center; }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <h2>密钥设置</h2>
+        <label for="secretKey">共用密钥 (双方需保持一致)</label>
+        <input type="password" id="secretKey" placeholder="请输入约定的密码...">
+    </div>
+
+    <div class="card">
+        <h2>1. 加密媒体文件 (发送方)</h2>
+        <label>选择图片或短视频</label>
+        <input type="file" id="mediaInput" accept="image/*,video/*">
+        
+        <div id="statusTip" class="loading">正在加密，请稍候...</div>
+
+        <button class="btn-green" id="encryptBtn" onclick="handleEncrypt()">加密并下载安全文件</button>
+        <p class="tip">提示：支持图片和短视频。建议视频控制在较小体积（或先用手机自带工具剪短），点击后会直接生成 `.dat` 加密文件发送给对方。</p>
+    </div>
+
+    <div class="card">
+        <h2>2. 解密查看 (接收方)</h2>
+        <label>选择收到的加密文件 (.dat)</label>
+        <input type="file" id="encryptedFileInput" accept=".dat,.txt">
+        <button onclick="handleDecrypt()">解密并播放/查看</button>
+        
+        <img id="preview" alt="解密后的照片">
+        <video id="videoPreview" controls playsinline></video>
+    </div>
+
+    <script>
+        // 核心加密逻辑（支持图片和视频通用）
+        function handleEncrypt() {
+            const fileInput = document.getElementById('mediaInput');
+            const key = document.getElementById('secretKey').value;
+            const tip = document.getElementById('statusTip');
+            const btn = document.getElementById('encryptBtn');
+
+            if (!key) { alert('请先设置共用密钥！'); return; }
+            if (!fileInput.files[0]) { alert('请先选择文件！'); return; }
+
+            const file = fileInput.files[0];
+            btn.disabled = true;
+            tip.style.display = 'block';
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                try {
+                    const base64Data = e.target.result;
+                    // AES-256 加密
+                    const encrypted = CryptoJS.AES.encrypt(base64Data, key).toString();
+                    
+                    // 生成下载文件
+                    const blob = new Blob([encrypted], { type: 'text/plain;charset=utf-8' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'payload_' + Math.floor(Math.random() * 100000) + '.dat';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+
+                    tip.innerText = "加密并下载完成！";
+                    setTimeout(() => tip.style.display = 'none', 3000);
+                    btn.disabled = false;
+                } catch (err) {
+                    console.error(err);
+                    alert('加密失败，文件可能过大或内存不足');
+                    tip.style.display = 'none';
+                    btn.disabled = false;
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // 解密逻辑（自动识别图片或视频渲染）
+        function handleDecrypt() {
+            const fileInput = document.getElementById('encryptedFileInput');
+            const key = document.getElementById('secretKey').value;
+            if (!key) { alert('请先输入共用密钥！'); return; }
+            if (!fileInput.files[0]) { alert('请选择加密文件！'); return; }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const encryptedText = e.target.result.trim();
+                try {
+                    const bytes = CryptoJS.AES.decrypt(encryptedText, key);
+                    const originalBase64 = bytes.toString(CryptoJS.enc.Utf8);
+                    
+                    if (!originalBase64) {
+                        alert('解密失败！密钥错误或文件损坏。');
+                        return;
+                    }
+
+                    const img = document.getElementById('preview');
+                    const video = document.getElementById('videoPreview');
+
+                    if (originalBase64.startsWith('data:image')) {
+                        video.style.display = 'none';
+                        video.pause();
+                        img.src = originalBase64;
+                        img.style.display = 'block';
+                    } else if (originalBase64.startsWith('data:video')) {
+                        img.style.display = 'none';
+                        video.src = originalBase64;
+                        video.style.display = 'block';
+                    } else {
+                        alert('未知的数据类型');
+                    }
+                } catch (err) {
+                    alert('解密失败，请检查密钥或文件');
+                }
+            };
+            reader.readAsText(fileInput.files[0]);
+        }
+    </script>
+</body>
+</html>
