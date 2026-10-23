@@ -1,0 +1,1758 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0f1115">
+<meta name="format-detection" content="telephone=no">
+<title>私密文件传输工具</title>
+<script>
+/* 首屏前定主题：默认深色，只有用户手动切过才跟随记忆 */
+try {
+    var _t = 'dark';
+    var _s = localStorage.getItem('sft.theme');
+    if (_s === 'light' || _s === 'dark') _t = _s;
+    document.documentElement.setAttribute('data-theme', _t);
+} catch (e) { }
+</script>
+<style>
+    :root {
+        --blue: #007aff;
+        --blue-dark: #0056b3;
+        --green: #34c759;
+        --green-dark: #248a3d;
+        --warn: #c77700;
+        --err: #d92c2c;
+
+        --bg: #f7f9fc;
+        --surface: #ffffff;
+        --surface-2: #fbfcfe;
+        --line: #eef1f5;
+        --text: #2b3038;
+        --text-2: #6b7280;
+        --muted: #8a93a0;
+        --input-bg: #ffffff;
+        --input-line: #ccd3dc;
+        --chip: #eef1f5;
+        --chip-text: #4a5160;
+        --shadow: 0 4px 12px rgba(0, 0, 0, .05);
+
+        --action-h: 64px;
+        --tab-h: 61px;
+        --radius: 14px;
+        color-scheme: light;
+    }
+    html[data-theme="dark"] {
+        --bg: #0f1115;
+        --surface: #171a20;
+        --surface-2: #1c2028;
+        --line: #262b34;
+        --text: #e7eaf0;
+        --text-2: #a4adbb;
+        --muted: #7f8896;
+        --input-bg: #101318;
+        --input-line: #333a45;
+        --chip: #222831;
+        --chip-text: #c6cedb;
+        --shadow: 0 4px 14px rgba(0, 0, 0, .45);
+        --warn: #e0a028;
+        --err: #ff6b6b;
+        color-scheme: dark;
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { margin: 0; padding: 0; }
+    body {
+        background: var(--bg);
+        color: var(--text);
+        font-size: 15px;
+        line-height: 1.5;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+        -webkit-text-size-adjust: 100%;
+        /* 给吸底按钮 + 底部 Tab 让位 */
+        padding-bottom: calc(var(--action-h) + var(--tab-h) + env(safe-area-inset-bottom) + 16px);
+    }
+    @media (min-width: 600px) {
+        body { padding-bottom: calc(var(--action-h) + env(safe-area-inset-bottom) + 16px); }
+    }
+
+    button {
+        font: inherit;
+        color: inherit;
+        border: 0;
+        background: none;
+        padding: 0;
+        cursor: pointer;
+    }
+    [hidden] { display: none !important; }
+
+    .app { max-width: 760px; margin: 0 auto; padding: 0 14px; }
+    @media (min-width: 1024px) { .app { max-width: 880px; } }
+
+    /* ---------- 顶栏 ---------- */
+    .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: calc(10px + env(safe-area-inset-top)) 2px 8px;
+        background: var(--bg);
+    }
+    .brand { display: flex; align-items: center; gap: 7px; font-size: 17px; font-weight: 700; }
+    .brand .logo { font-size: 17px; }
+    .pillbtn {
+        margin-left: auto;
+        min-height: 32px;
+        padding: 0 12px;
+        border-radius: 99px;
+        background: var(--chip);
+        color: var(--chip-text);
+        font-size: 12.5px;
+        font-weight: 600;
+    }
+    .pillbtn:active { opacity: .75; }
+
+    /* ---------- 密钥条 ---------- */
+    .keychip {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        min-height: 46px;
+        padding: 11px 13px;
+        border-radius: 12px;
+        background: var(--chip);
+        color: var(--chip-text);
+        font-size: 13.5px;
+        font-weight: 600;
+        text-align: left;
+        margin-bottom: 10px;
+    }
+    .keychip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--err); flex: 0 0 auto; }
+    .keychip.ok .dot { background: var(--green); }
+    .keychip .ktext { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .keychip .chev { transform: rotate(90deg); transition: transform .2s; font-size: 12px; opacity: .6; }
+    .keychip[aria-expanded="true"] .chev { transform: rotate(-90deg); }
+
+    .keypanel {
+        background: var(--surface);
+        border-radius: 12px;
+        box-shadow: var(--shadow);
+        padding: 12px;
+        margin-bottom: 10px;
+    }
+    .keyrow { display: flex; gap: 7px; }
+    .keyrow input { flex: 1; min-width: 0; margin: 0; }
+    .keyrow button {
+        flex: 0 0 auto;
+        min-height: 44px;
+        padding: 0 11px;
+        border-radius: 10px;
+        background: var(--chip);
+        color: var(--chip-text);
+        font-size: 12.5px;
+        font-weight: 600;
+    }
+    .keyrow button:active { opacity: .75; }
+    .keyrow button:disabled { opacity: .45; }
+
+    input[type="password"], input[type="text"] {
+        width: 100%;
+        padding: 11px 12px;
+        border: 1px solid var(--input-line);
+        border-radius: 10px;
+        background: var(--input-bg);
+        color: var(--text);
+        font-size: 16px; /* iOS 下小于 16px 会触发自动放大 */
+        outline: none;
+    }
+    input[type="password"]:focus, input[type="text"]:focus { border-color: var(--blue); }
+
+    .tip { font-size: 12px; color: var(--muted); margin: 8px 0 0; line-height: 1.6; }
+    .tip b { color: var(--text-2); }
+
+    .banner {
+        background: var(--surface-2);
+        border: 1px solid var(--line);
+        color: var(--text-2);
+        font-size: 12.5px;
+        padding: 10px 12px;
+        border-radius: 12px;
+        margin-bottom: 12px;
+        line-height: 1.6;
+        white-space: pre-line;
+    }
+    .banner.errb { border-color: var(--err); color: var(--err); background: transparent; }
+
+    /* ---------- Tab ---------- */
+    .tabbar {
+        position: fixed;
+        left: 0; right: 0; bottom: 0;
+        z-index: 31;
+        display: flex;
+        gap: 8px;
+        height: calc(var(--tab-h) + env(safe-area-inset-bottom));
+        padding: 8px 14px calc(8px + env(safe-area-inset-bottom));
+        background: var(--surface);
+        border-top: 1px solid var(--line);
+    }
+    .tabbar button {
+        flex: 1;
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 12px;
+        font-size: 14px;
+        font-weight: 600;
+        background: transparent;
+        color: var(--muted);
+        transition: background .18s, color .18s;
+    }
+    .tabbar button.on { background: var(--blue); color: #fff; }
+    .tabbar button.on:active { background: var(--blue-dark); }
+    @media (min-width: 600px) {
+        .tabbar {
+            position: static;
+            height: auto;
+            padding: 0;
+            border: 0;
+            background: transparent;
+            justify-content: center;
+            margin: 2px 0 14px;
+        }
+        .tabbar button {
+            flex: 0 0 auto;
+            min-width: 140px;
+            background: var(--chip);
+            color: var(--chip-text);
+        }
+        .tabbar button.on { background: var(--blue); color: #fff; }
+    }
+
+    /* ---------- 内容 ---------- */
+    .pane { display: none; }
+    .pane.on { display: block; animation: paneIn .18s ease; }
+    @keyframes paneIn { from { opacity: .35; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+
+    .card {
+        background: var(--surface);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        padding: 14px;
+        margin-bottom: 14px;
+    }
+    h2 { margin: 0 0 12px; font-size: 15px; font-weight: 700; color: var(--text); }
+    .cardhead { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .cardhead h2 { margin: 0; flex: 1; min-width: 0; }
+    .linkbtn {
+        flex: 0 0 auto;
+        padding: 6px 2px;
+        font-size: 12.5px;
+        font-weight: 600;
+        color: var(--blue);
+    }
+    .linkbtn:active { opacity: .6; }
+
+    /* 已选中的 .sft */
+    .chosen {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        padding: 12px;
+        border: 1px solid var(--green);
+        border-radius: var(--radius);
+        background: var(--surface-2);
+    }
+    .chosen .cico {
+        width: 42px; height: 42px; flex: 0 0 42px;
+        display: flex; align-items: center; justify-content: center;
+        border-radius: 10px;
+        background: var(--chip);
+        color: var(--green);
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: .5px;
+    }
+    .chosen .cinfo { flex: 1; min-width: 0; }
+    .chosen .nm { font-size: 13.5px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .chosen .sz { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+    .ghostbtn {
+        flex: 0 0 auto;
+        padding: 9px 13px;
+        border-radius: 9px;
+        background: var(--chip);
+        color: var(--err);
+        font-size: 12.5px;
+        font-weight: 600;
+    }
+    .ghostbtn:active { opacity: .7; }
+
+    .filepick {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+        min-height: 108px;
+        padding: 20px 14px;
+        border: 2px dashed var(--line);
+        border-radius: var(--radius);
+        background: var(--surface-2);
+        text-align: center;
+        cursor: pointer;
+        transition: border-color .2s, background .2s;
+    }
+    .filepick:active { border-color: var(--blue); background: var(--bg); }
+    .filepick .pico { font-size: 22px; color: var(--blue); line-height: 1.2; }
+    .filepick .ptext { font-size: 14.5px; font-weight: 600; color: var(--text); }
+    .filepick .psub { font-size: 12px; color: var(--muted); }
+    .hidden-input { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; clip: rect(0 0 0 0); }
+
+    /* ---------- 文件列表 ---------- */
+    .list { margin-top: 10px; }
+    .row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px;
+        border: 1px solid var(--line);
+        border-radius: 11px;
+        margin-bottom: 7px;
+        background: var(--surface-2);
+    }
+    .row .th, .row .ph {
+        width: 44px; height: 44px; flex: 0 0 44px;
+        border-radius: 9px; object-fit: cover;
+        background: var(--chip);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 19px; color: var(--muted); overflow: hidden;
+    }
+    .row .mid { flex: 1; min-width: 0; }
+    .row .nm { font-size: 13px; color: var(--text); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .row .sz { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .row .acts { display: flex; gap: 4px; flex: 0 0 auto; }
+    .row .acts button {
+        width: 32px; height: 32px; min-height: 32px;
+        padding: 0; margin: 0;
+        font-size: 13px; font-weight: 700;
+        background: var(--chip); color: var(--chip-text);
+        border-radius: 9px;
+    }
+    .row .acts button:active { opacity: .7; }
+    .row .acts button:disabled { opacity: .3; }
+    .row .acts button[data-act="del"] { color: var(--err); }
+
+    .sum { font-size: 12.5px; color: var(--muted); margin: 6px 0 0; }
+    .sum.warn { color: var(--warn); }
+    .sum.bad { color: var(--err); font-weight: 600; }
+
+    /* ---------- 进度 ---------- */
+    .bar { height: 8px; background: var(--chip); border-radius: 99px; overflow: hidden; margin: 10px 0; display: none; }
+    .bar > i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--blue), var(--green)); transition: width .15s linear; }
+    .status { display: none; font-size: 12.5px; line-height: 1.6; margin-top: 8px; word-break: break-word; white-space: pre-line; }
+    .status.on { display: block; }
+    .status.ok { color: var(--green-dark); }
+    html[data-theme="dark"] .status.ok { color: var(--green); }
+    .status.err { color: var(--err); }
+    .status.info { color: var(--blue); }
+    .status.warn { color: var(--warn); }
+
+    /* ---------- 结果 ---------- */
+    .reshead {
+        font-size: 13px; font-weight: 600; color: var(--green-dark);
+        margin: 14px 0 10px; padding-top: 12px; border-top: 1px solid var(--line);
+    }
+    html[data-theme="dark"] .reshead { color: var(--green); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 6px; }
+    .grid .cell { position: relative; padding-top: 100%; border-radius: 9px; overflow: hidden; background: var(--chip); cursor: pointer; }
+    .grid .cell > img, .grid .cell > .ph {
+        position: absolute; inset: 0; width: 100%; height: 100%;
+        object-fit: cover; display: flex; align-items: center; justify-content: center;
+        font-size: 18px; color: var(--muted);
+    }
+    .grid .cell .badge {
+        position: absolute; left: 4px; top: 4px; z-index: 2;
+        background: rgba(0, 0, 0, .45); color: #fff;
+        font-size: 10px; padding: 1px 5px; border-radius: 99px;
+    }
+    .grid .cell.noprev { cursor: default; }
+
+    .vwrap { margin-top: 10px; }
+    .vwrap .vname { font-size: 12px; color: var(--muted); margin-bottom: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .vwrap video { width: 100%; max-height: 60vh; border-radius: 11px; background: #000; display: block; }
+
+    .frow { display: flex; align-items: center; gap: 10px; padding: 10px; border: 1px solid var(--line); border-radius: 11px; margin-top: 8px; background: var(--surface-2); }
+    .frow .ico { width: 32px; flex: 0 0 32px; text-align: center; font-size: 19px; }
+    .frow .nm { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .frow .sz { font-size: 11px; color: var(--muted); }
+    .frow .note { font-size: 11px; color: var(--warn); }
+
+    .clr {
+        display: block; margin: 14px auto 0; padding: 7px 14px;
+        color: var(--muted); font-size: 12px; font-weight: 500; text-decoration: underline;
+    }
+
+    /* ---------- 吸底主按钮 ---------- */
+    .actionbar {
+        position: fixed;
+        left: 0; right: 0;
+        bottom: calc(var(--tab-h) + env(safe-area-inset-bottom));
+        z-index: 30;
+        padding: 8px 14px 6px;
+        background: linear-gradient(to top, var(--bg) 58%, transparent);
+        pointer-events: none;
+    }
+    .actioninner { max-width: 560px; margin: 0 auto; pointer-events: auto; }
+    @media (min-width: 600px) {
+        .actionbar { bottom: 0; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+    }
+    .btn-primary {
+        width: 100%;
+        min-height: 48px;
+        border-radius: 12px;
+        background: var(--blue);
+        color: #fff;
+        font-size: 16px;
+        font-weight: 600;
+        transition: background .2s, opacity .2s;
+        box-shadow: 0 4px 14px rgba(0, 122, 255, .22);
+    }
+    .btn-primary:active { background: var(--blue-dark); }
+    .btn-primary.btn-green { background: var(--green); box-shadow: 0 4px 14px rgba(52, 199, 89, .22); }
+    .btn-primary.btn-green:active { background: var(--green-dark); }
+    .btn-primary:disabled { background: #b9c0c9; color: #f0f2f5; box-shadow: none; }
+
+    .foot { text-align: center; font-size: 11px; color: var(--muted); margin: 18px 0 4px; }
+
+    /* ---------- 沉浸看图 ---------- */
+    #viewer {
+        position: fixed; inset: 0; z-index: 100;
+        background: #000;
+        display: none;
+        flex-direction: column;
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+    #viewer.on { display: flex; }
+    .viewer-top { display: flex; align-items: center; gap: 10px; padding: 10px 14px; color: #fff; flex: 0 0 auto; }
+    .viewer-top button { background: rgba(255, 255, 255, .15); color: #fff; border-radius: 9px; padding: 8px 13px; font-size: 13px; font-weight: 600; }
+    .viewer-top button:active { background: rgba(255, 255, 255, .28); }
+    .vt { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; color: #b9c0cb; }
+    .vc { font-size: 12.5px; color: #b9c0cb; flex: 0 0 auto; }
+    .viewer-stage {
+        flex: 1; min-height: 0; position: relative; overflow: hidden;
+        display: flex; align-items: center; justify-content: center;
+        touch-action: none;
+    }
+    .viewer-stage img {
+        max-width: 100%; max-height: 100%;
+        object-fit: contain;
+        transform-origin: center center;
+        will-change: transform;
+        user-select: none;
+        -webkit-user-drag: none;
+        pointer-events: none;
+    }
+    .viewer-nav { display: flex; gap: 10px; padding: 10px 14px 14px; flex: 0 0 auto; }
+    .viewer-nav button {
+        flex: 1; min-height: 44px; border-radius: 10px;
+        background: rgba(255, 255, 255, .15); color: #fff;
+        font-size: 14px; font-weight: 600;
+    }
+    .viewer-nav button:active { background: rgba(255, 255, 255, .28); }
+    .viewer-nav button:disabled { opacity: .3; }
+
+    pre.selftest {
+        background: #10151c; color: #d7e0ea; font-size: 12px; line-height: 1.5;
+        padding: 12px; border-radius: 10px; white-space: pre-wrap; word-break: break-all;
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .pane.on { animation: none; }
+        .bar > i { transition: none; }
+    }
+</style>
+</head>
+<body>
+
+<div class="app">
+    <header class="topbar">
+        <div class="brand"><span>私密传输</span></div>
+        <button type="button" class="pillbtn" id="themeBtn" title="切换主题">深色</button>
+    </header>
+
+    <button type="button" class="keychip" id="keyChip" aria-expanded="false">
+        <span class="dot"></span>
+        <span class="ktext" id="keyChipText">未设置密钥，点击设置</span>
+        <span class="chev">›</span>
+    </button>
+
+    <div class="keypanel" id="keyPanel" hidden>
+        <div class="keyrow">
+            <input type="password" id="secretKey" placeholder="输入约定的密钥…" autocomplete="off" autocapitalize="off" spellcheck="false">
+            <button type="button" id="btnEye">显示</button>
+            <button type="button" id="btnCopy">复制</button>
+            <button type="button" id="btnGen">生成</button>
+        </div>
+        <div class="status" id="keyStatus"></div>
+        <p class="tip">点「生成」得到随机密钥，点「复制」后通过另一条渠道发给对方。<b>至少 8 位</b>，两边必须一致。</p>
+    </div>
+
+    <div id="banners"></div>
+
+    <nav class="tabbar" id="tabbar">
+        <button type="button" data-tab="send" class="on" id="tabSend">发送</button>
+        <button type="button" data-tab="recv" id="tabRecv">接收</button>
+    </nav>
+
+    <main class="content">
+        <section class="pane on" id="paneSend">
+            <div class="card">
+                <h2>选择要加密的内容</h2>
+                <label class="filepick">
+                    <input type="file" id="mediaInput" accept="image/*,video/*" multiple class="hidden-input">
+                    <span class="pico">＋</span>
+                    <span class="ptext">选择图片或视频</span>
+                    <span class="psub">可多选 · 图片按文件名自动排序</span>
+                </label>
+
+                <div id="pickedList" class="list"></div>
+                <div id="sumLine" class="sum"></div>
+
+                <div class="bar" id="sendBar"><i></i></div>
+                <div class="status" id="sendStatus"></div>
+            </div>
+            <p class="tip" style="text-align:center">
+                生成的是一个整体 <b>.sft</b> 文件，体积几乎和原文件一致。<br>
+                发送时请用微信/QQ 的<b>「文件」</b>方式，<b>不要用「图片」</b>方式，否则会被压缩损坏。
+            </p>
+        </section>
+
+        <section class="pane" id="paneRecv">
+            <div class="card">
+                <div class="cardhead">
+                    <h2>解密并查看</h2>
+                    <button type="button" class="linkbtn" id="recvSetupToggle" hidden>展开文件 / 密钥</button>
+                </div>
+
+                <div id="recvSetup">
+                    <label class="filepick" id="sftPickLabel">
+                        <input type="file" id="sftInput" accept=".sft,application/octet-stream" class="hidden-input">
+                        <span class="pico">⤓</span>
+                        <span class="ptext">选择 .sft 文件</span>
+                        <span class="psub">选中后需先移除才能换一个</span>
+                    </label>
+
+                    <div class="chosen" id="sftChosen" hidden>
+                        <div class="cico">SFT</div>
+                        <div class="cinfo">
+                            <div class="nm" id="sftChosenName"></div>
+                            <div class="sz" id="sftChosenSize"></div>
+                        </div>
+                        <button type="button" class="ghostbtn" id="sftRemove">移除</button>
+                    </div>
+                </div>
+
+                <div class="bar" id="recvBar"><i></i></div>
+                <div class="status" id="recvStatus"></div>
+                <div id="result"></div>
+            </div>
+        </section>
+    </main>
+
+    <div class="foot">v2.2.0 · 仅在本机浏览器内加解密</div>
+</div>
+
+<div class="actionbar" id="actionbar">
+    <div class="actioninner">
+        <button type="button" class="btn-primary btn-green" id="encryptBtn">加密并下载 .sft</button>
+        <button type="button" class="btn-primary" id="decryptBtn" hidden>解密并查看</button>
+    </div>
+</div>
+
+<div id="viewer">
+    <div class="viewer-top">
+        <button type="button" id="viewerClose">关闭</button>
+        <span class="vt" id="viewerTitle"></span>
+        <span class="vc" id="viewerCount"></span>
+    </div>
+    <div class="viewer-stage" id="viewerStage">
+        <img id="viewerImg" alt="">
+    </div>
+    <div class="viewer-nav">
+        <button type="button" id="viewerPrev">上一张</button>
+        <button type="button" id="viewerNext">下一张</button>
+    </div>
+</div>
+
+<script src="sft-core.js"></script>
+<script>
+(function () {
+    'use strict';
+
+    var $ = function (id) { return document.getElementById(id); };
+    var SFT = window.SFT;
+
+    var LIMIT_CONFIRM = 100 * 1024 * 1024;
+    var LIMIT_HARD = 300 * 1024 * 1024;
+    var MAX_ENTRIES = 200;
+    var MIN_KEY_LEN = 8;
+    var THUMB_MAX_COUNT = 150;
+    var THEME_KEY = 'sft.theme';
+
+    var picked = [];
+    var pickedSeq = 0;
+    var sendBusy = false;
+    var recvBusy = false;
+    var resultUrls = [];
+    var resultImages = [];
+    var currentTab = 'send';
+
+    /* ---------------- 工具函数 ---------------- */
+
+    function fmtSize(n) {
+        if (!isFinite(n)) return '-';
+        if (n < 1024) return Math.round(n) + ' B';
+        var u = ['KB', 'MB', 'GB'], i = -1, v = n;
+        do { v /= 1024; i++; } while (v >= 1024 && i < u.length - 1);
+        return (v < 10 ? v.toFixed(1) : Math.round(v)) + ' ' + u[i];
+    }
+
+    function fmtEta(sec) {
+        if (!isFinite(sec) || sec < 0) return '';
+        if (sec < 1) return '即将完成';
+        if (sec < 60) return '还剩 ' + Math.round(sec) + ' 秒';
+        var m = Math.floor(sec / 60), s = Math.round(sec % 60);
+        return '还剩 ' + m + ' 分' + (s > 0 ? ' ' + s + ' 秒' : '');
+    }
+
+    function pad2(n) { return n < 10 ? '0' + n : '' + n; }
+
+    function stamp() {
+        var d = new Date();
+        return d.getFullYear() + pad2(d.getMonth() + 1) + pad2(d.getDate()) + '_' + pad2(d.getHours()) + pad2(d.getMinutes());
+    }
+
+    function yieldUI() { return new Promise(function (r) { setTimeout(r, 0); }); }
+
+    function now() { return (window.performance && performance.now) ? performance.now() : Date.now(); }
+
+    function setBar(el, pct) {
+        el.style.display = pct > 0 ? 'block' : 'none';
+        if (el.firstElementChild) el.firstElementChild.style.width = Math.max(0, Math.min(100, pct || 0)) + '%';
+    }
+
+    function setStatus(el, cls, text) {
+        el.className = 'status on ' + (cls || 'info');
+        el.textContent = text;
+    }
+
+    function hideStatus(el) { el.className = 'status'; el.textContent = ''; }
+
+    function banner(html, isErr) {
+        var d = document.createElement('div');
+        d.className = 'banner' + (isErr ? ' errb' : '');
+        d.innerHTML = html;
+        $('banners').appendChild(d);
+    }
+
+    function ext(name) {
+        var m = /\.([a-z0-9]+)$/i.exec(name || '');
+        return m ? m[1].toLowerCase() : '';
+    }
+
+    var VIDEO_EXT = { mp4: 1, mov: 1, m4v: 1, webm: 1, '3gp': 1, mkv: 1, avi: 1 };
+    var IMAGE_EXT = { jpg: 1, jpeg: 1, png: 1, gif: 1, webp: 1, bmp: 1, heic: 1, heif: 1, avif: 1, tif: 1, tiff: 1 };
+    var NO_PREVIEW_EXT = { heic: 1, heif: 1, tif: 1, tiff: 1 };
+
+    function guessType(name) {
+        var e = ext(name);
+        if (VIDEO_EXT[e]) return e === 'mov' ? 'video/quicktime' : 'video/' + e;
+        if (e === 'jpg' || e === 'jpeg') return 'image/jpeg';
+        if (IMAGE_EXT[e]) return 'image/' + e;
+        return '';
+    }
+
+    function isVideoEntry(e) { return /^video\//i.test(e.type || '') || !!VIDEO_EXT[ext(e.name)]; }
+    function isImageEntry(e) { return /^image\//i.test(e.type || '') || !!IMAGE_EXT[ext(e.name)]; }
+
+    function canPreview(e) {
+        if (NO_PREVIEW_EXT[ext(e.name)]) return false;
+        if (/heic|heif/i.test(e.type || '')) return false;
+        return true;
+    }
+
+    /* ---------------- 主题 ---------------- */
+
+    var themeMode = 'dark';
+
+    function readTheme() {
+        try {
+            var v = localStorage.getItem(THEME_KEY);
+            if (v === 'light' || v === 'dark') themeMode = v;
+        } catch (e) { /* 隐私模式等取不到就算了 */ }
+    }
+
+    function applyTheme() {
+        var dark = themeMode === 'dark';
+        var root = document.documentElement;
+        if (root && root.setAttribute) root.setAttribute('data-theme', dark ? 'dark' : 'light');
+        var btn = $('themeBtn');
+        if (btn) {
+            btn.textContent = dark ? '深色' : '浅色';
+            btn.title = dark ? '当前深色，点击切换为浅色' : '当前浅色，点击切换为深色';
+            if (btn.setAttribute) btn.setAttribute('aria-label', btn.title);
+        }
+        var meta = document.querySelector && document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute('content', dark ? '#0f1115' : '#f7f9fc');
+    }
+
+    function toggleTheme() {
+        themeMode = themeMode === 'dark' ? 'light' : 'dark';
+        try { localStorage.setItem(THEME_KEY, themeMode); } catch (e) { }
+        applyTheme();
+    }
+
+    /* ---------------- Tab ---------------- */
+
+    function switchTab(name) {
+        currentTab = name === 'recv' ? 'recv' : 'send';
+        var isSend = currentTab === 'send';
+        $('paneSend').classList.toggle('on', isSend);
+        $('paneRecv').classList.toggle('on', !isSend);
+        $('tabSend').classList.toggle('on', isSend);
+        $('tabRecv').classList.toggle('on', !isSend);
+        $('encryptBtn').hidden = !isSend;
+        $('decryptBtn').hidden = isSend;
+        if (window.scrollTo) window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    /* ---------------- 接收端：选中的文件与折叠 ---------------- */
+
+    var sftFile = null;
+
+    function expandRecvSetup() {
+        $('recvSetup').hidden = false;
+        $('recvSetupToggle').hidden = true;
+    }
+
+    function collapseRecvSetup() {
+        $('recvSetup').hidden = true;
+        $('recvSetupToggle').hidden = false;
+        setKeyPanel(false);
+    }
+
+    function setRecvFile(f) {
+        sftFile = f;
+        $('sftPickLabel').hidden = true;
+        $('sftChosen').hidden = false;
+        $('sftChosenName').textContent = f.name;
+        $('sftChosenSize').textContent = fmtSize(f.size) + ' · 解密前可移除重选';
+        hideStatus($('recvStatus'));
+        expandRecvSetup();
+    }
+
+    function clearRecvFile() {
+        sftFile = null;
+        $('sftInput').value = '';
+        $('sftPickLabel').hidden = false;
+        $('sftChosen').hidden = true;
+        $('sftChosenName').textContent = '';
+        $('sftChosenSize').textContent = '';
+        closeViewer();
+        revokeResult();
+        $('result').innerHTML = '';
+        hideStatus($('recvStatus'));
+        expandRecvSetup();
+    }
+
+    /* ---------------- 密钥 ---------------- */
+
+    function setKeyPanel(open) {
+        $('keyPanel').hidden = !open;
+        $('keyChip').setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+
+    function updateKeyChip() {
+        var v = $('secretKey').value || '';
+        var ok = v.length >= MIN_KEY_LEN;
+        var chip = $('keyChip');
+        chip.classList.toggle('ok', ok);
+        $('keyChipText').textContent = !v
+            ? '未设置密钥，点击设置'
+            : (ok ? '密钥已设置（' + v.length + ' 位）· 点击修改' : '密钥太短，至少 ' + MIN_KEY_LEN + ' 位');
+    }
+
+    function keyError(msg) {
+        setKeyPanel(true);
+        setStatus($('keyStatus'), 'err', msg);
+        updateKeyChip();
+        var p = $('keyPanel');
+        if (p.scrollIntoView) {
+            try { p.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (e) { }
+        }
+    }
+
+    function genKey() {
+        var alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+        var b = new Uint8Array(20);
+        crypto.getRandomValues(b);
+        var s = '';
+        for (var i = 0; i < b.length; i++) s += alphabet.charAt(b[i] % alphabet.length);
+        $('secretKey').value = s.match(/.{1,5}/g).join('-');
+        $('secretKey').type = 'text';
+        $('btnEye').textContent = '隐藏';
+        setStatus($('keyStatus'), 'ok', '已生成随机密钥并显示，点「复制」发给对方。');
+        updateKeyChip();
+    }
+
+    function toggleEye() {
+        var el = $('secretKey');
+        el.type = el.type === 'password' ? 'text' : 'password';
+        $('btnEye').textContent = el.type === 'password' ? '显示' : '隐藏';
+    }
+
+    function copyKey() {
+        var el = $('secretKey');
+        var v = el.value;
+        if (!v) { setStatus($('keyStatus'), 'err', '还没有密钥可复制。'); return; }
+        var done = function () { setStatus($('keyStatus'), 'ok', '已复制。记得换个渠道发给对方，别和 .sft 文件走同一条。'); };
+        var legacy = function () {
+            var was = el.type;
+            el.type = 'text';
+            if (el.select) el.select();
+            try { el.setSelectionRange(0, el.value.length); } catch (e) { }
+            try { document.execCommand('copy'); } catch (e) { }
+            el.type = was;
+            done();
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(v).then(done).catch(legacy);
+        } else {
+            legacy();
+        }
+    }
+
+    /* ---------------- 缩略图（低内存） ---------------- */
+
+    var HAS_BITMAP = (typeof createImageBitmap === 'function');
+
+    function makeThumb(blob, max) {
+        if (!HAS_BITMAP) return Promise.resolve(null);
+        return createImageBitmap(blob, { resizeWidth: max, resizeQuality: 'low' }).then(function (bmp) {
+            var c = document.createElement('canvas');
+            c.width = bmp.width;
+            c.height = bmp.height;
+            c.getContext('2d').drawImage(bmp, 0, 0);
+            if (bmp.close) bmp.close();
+            return new Promise(function (res) {
+                try { c.toBlob(function (b) { res(b ? URL.createObjectURL(b) : null); }, 'image/jpeg', 0.72); }
+                catch (e) { res(null); }
+            });
+        }).catch(function () { return null; });
+    }
+
+    var thumbLoopRunning = false;
+
+    function thumbLoop() {
+        if (thumbLoopRunning) return;
+        thumbLoopRunning = true;
+        var i = 0, made = 0;
+        function step() {
+            while (i < picked.length) {
+                var it = picked[i];
+                if (it.thumbTried) { i++; continue; }
+                if (made >= THUMB_MAX_COUNT) { thumbLoopRunning = false; return; }
+                if (!isImageEntry(it)) { it.thumbTried = true; i++; continue; }
+                it.thumbTried = true;
+                made++;
+                var target = it;
+                makeThumb(target.file, 200).then(function (url) {
+                    if (url && picked.indexOf(target) !== -1) {
+                        target.thumbUrl = url;
+                        patchRowThumb(target);
+                    } else if (url) {
+                        URL.revokeObjectURL(url);
+                    }
+                    setTimeout(step, 0);
+                });
+                return;
+            }
+            thumbLoopRunning = false;
+        }
+        step();
+    }
+
+    function patchRowThumb(item) {
+        var row = $('pickedList').querySelector('.row[data-id="' + item.id + '"]');
+        if (!row) return;
+        var old = row.querySelector('.ph, .th');
+        if (!old) return;
+        var img = document.createElement('img');
+        img.className = 'th';
+        img.src = item.thumbUrl;
+        img.alt = '';
+        row.replaceChild(img, old);
+    }
+
+    /* ---------------- 选择文件 ---------------- */
+
+    var heicWarned = false;
+
+    function addFiles(files) {
+        var added = 0, skipped = 0, heic = 0;
+        for (var i = 0; i < files.length; i++) {
+            var f = files[i];
+            if (picked.length >= MAX_ENTRIES) { skipped++; continue; }
+            var dup = false;
+            for (var j = 0; j < picked.length; j++) {
+                if (picked[j].name === f.name && picked[j].size === f.size) { dup = true; break; }
+            }
+            if (dup) { skipped++; continue; }
+            var type = f.type || guessType(f.name);
+            if (IMAGE_EXT[ext(f.name)] && NO_PREVIEW_EXT[ext(f.name)]) heic++;
+            picked.push({
+                id: ++pickedSeq,
+                file: f,
+                name: f.name,
+                type: type,
+                size: f.size,
+                thumbUrl: null,
+                thumbTried: false
+            });
+            added++;
+        }
+
+        var collator = (typeof Intl !== 'undefined' && Intl.Collator)
+            ? new Intl.Collator('zh-Hans-CN', { numeric: true, sensitivity: 'base' })
+            : null;
+        if (collator) picked.sort(function (a, b) { return collator.compare(a.name, b.name); });
+        else picked.sort(function (a, b) { return a.name < b.name ? -1 : a.name > b.name ? 1 : 0; });
+
+        renderPicked();
+        thumbLoop();
+
+        var st = $('sendStatus');
+        if (skipped) setStatus(st, 'warn', '已忽略 ' + skipped + ' 个重复或超量的文件。');
+        else if (added) hideStatus(st);
+
+        if (heic && !heicWarned) {
+            heicWarned = true;
+            banner('提示：检测到 <b>' + heic + '</b> 个 HEIC/HEIF 图片（iPhone 默认格式）。这类图片在安卓/电脑的浏览器里<b>无法预览</b>，对方解密后只能看到「无法预览」占位。\n建议：iPhone「设置 → 相机 → 格式」改为「兼容性最佳」，或先导出为 JPG 再发。', true);
+        }
+    }
+
+    function renderPicked() {
+        var box = $('pickedList');
+        box.innerHTML = '';
+
+        picked.forEach(function (it, i) {
+            var row = document.createElement('div');
+            row.className = 'row';
+            row.setAttribute('data-id', String(it.id));
+
+            if (it.thumbUrl) {
+                var img = document.createElement('img');
+                img.className = 'th';
+                img.src = it.thumbUrl;
+                img.alt = '';
+                row.appendChild(img);
+            } else {
+                var ph = document.createElement('div');
+                ph.className = 'ph';
+                ph.textContent = isVideoEntry(it) ? '🎬' : (isImageEntry(it) ? '🖼' : '📄');
+                row.appendChild(ph);
+            }
+
+            var mid = document.createElement('div');
+            mid.className = 'mid';
+            var nm = document.createElement('div');
+            nm.className = 'nm';
+            nm.textContent = it.name;
+            nm.title = it.name;
+            var sz = document.createElement('div');
+            sz.className = 'sz';
+            sz.textContent = fmtSize(it.size) + (it.type ? ' · ' + it.type : '');
+            mid.appendChild(nm);
+            mid.appendChild(sz);
+            row.appendChild(mid);
+
+            var acts = document.createElement('div');
+            acts.className = 'acts';
+            acts.appendChild(miniBtn('↑', 'up', i === 0));
+            acts.appendChild(miniBtn('↓', 'down', i === picked.length - 1));
+            acts.appendChild(miniBtn('✕', 'del', false));
+            row.appendChild(acts);
+
+            box.appendChild(row);
+        });
+
+        updateSum();
+    }
+
+    function miniBtn(text, act, disabled) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = text;
+        b.setAttribute('data-act', act);
+        b.disabled = !!disabled;
+        return b;
+    }
+
+    function updateSum() {
+        var el = $('sumLine');
+        if (!picked.length) { el.textContent = ''; el.className = 'sum'; return; }
+        var total = 0;
+        for (var i = 0; i < picked.length; i++) total += picked[i].size;
+        var msg = '共 ' + picked.length + ' 个文件 · 合计 ' + fmtSize(total);
+        if (total > LIMIT_HARD) {
+            el.className = 'sum bad';
+            msg += ' · 超过 ' + fmtSize(LIMIT_HARD) + ' 上限';
+        } else if (total > LIMIT_CONFIRM) {
+            el.className = 'sum warn';
+            msg += ' · 体积较大';
+        } else {
+            el.className = 'sum';
+        }
+        el.textContent = msg;
+    }
+
+    /* ---------------- 下载 ---------------- */
+
+    function downloadBlob(blob, name) {
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = name;
+        a.rel = 'noopener';
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function () {
+            if (a.parentNode) a.parentNode.removeChild(a);
+            URL.revokeObjectURL(url);
+        }, 300000);
+    }
+
+    function errText(e) {
+        if (e && e.code) return e.message || '处理失败';
+        if (e && e.name === 'QuotaExceededError') return '浏览器内存不足，请减少单次处理的文件数量或体积';
+        if (e && e.name === 'SecurityError') return '浏览器阻止了该操作，请检查是否在 https 下打开';
+        return '处理失败：' + (e && e.message ? e.message : String(e));
+    }
+
+    /* ---------------- 进度（含速率 / 剩余时间） ---------------- */
+
+    function progressPrinter(bar, statusEl, label) {
+        var lastT = 0, lastBytes = 0, rate = 0;
+        return function (p) {
+            if (p.phase === 'kdf') {
+                setStatus(statusEl, 'info', '正在派生密钥…');
+                return;
+            }
+            var pct = p.totalChunks ? (p.chunkDone / p.totalChunks) * 100 : 0;
+            setBar(bar, pct);
+
+            var t = now();
+            if (!lastT) {
+                lastT = t;
+                lastBytes = p.bytesDone;
+            } else if (t - lastT >= 200) {
+                var inst = (p.bytesDone - lastBytes) / ((t - lastT) / 1000);
+                rate = rate ? rate * 0.6 + inst * 0.4 : inst;
+                lastT = t;
+                lastBytes = p.bytesDone;
+            }
+
+            var txt = label + ' ' + p.chunkDone + '/' + p.totalChunks + ' 块 · ' +
+                fmtSize(p.bytesDone) + ' / ' + fmtSize(p.totalBytes);
+            if (rate > 0 && p.bytesDone < p.totalBytes) {
+                txt += ' · ' + fmtSize(rate) + '/s';
+                var remain = (p.totalBytes - p.bytesDone) / rate;
+                var eta = fmtEta(remain);
+                if (eta) txt += ' · ' + eta;
+            }
+            setStatus(statusEl, 'info', txt);
+        };
+    }
+
+    /* ---------------- 加密 ---------------- */
+
+    function onEncrypt() {
+        if (sendBusy) return;
+        var key = $('secretKey').value;
+        var st = $('sendStatus');
+        var bar = $('sendBar');
+
+        if (!picked.length) { setStatus(st, 'err', '请先选择要加密的图片或视频。'); return; }
+        if (key.length < MIN_KEY_LEN) { keyError('密钥至少 ' + MIN_KEY_LEN + ' 位，建议点「生成」。'); return; }
+
+        var total = 0;
+        for (var i = 0; i < picked.length; i++) total += picked[i].size;
+        if (total > LIMIT_HARD) {
+            setStatus(st, 'err', '合计 ' + fmtSize(total) + '，超过 ' + fmtSize(LIMIT_HARD) + ' 上限。请先压缩或分批发。');
+            return;
+        }
+        if (total > LIMIT_CONFIRM) {
+            if (!confirm('合计 ' + fmtSize(total) + '，体积较大。手机端解密预览可能比较吃力，建议用电脑端操作。\n\n继续吗？')) return;
+        }
+
+        sendBusy = true;
+        guardLeave();
+        $('encryptBtn').disabled = true;
+        $('btnGen').disabled = true;
+        setStatus(st, 'info', '正在准备…');
+        setBar(bar, 1);
+
+        var items = picked.map(function (it) {
+            return { name: it.name, type: it.type, blob: it.file };
+        });
+        var t0 = now();
+
+        SFT.pack(items, key, progressPrinter(bar, st, '正在加密')).then(function (blob) {
+            setBar(bar, 100);
+            var name = 'sft_' + stamp() + '.sft';
+            downloadBlob(blob, name);
+            setStatus(st, 'ok', '完成：' + name + '（' + fmtSize(blob.size) + '），已开始下载。用时 ' +
+                ((now() - t0) / 1000).toFixed(1) + 's。\n发送时请选「文件」，不要用「图片」。');
+            setTimeout(function () { setBar(bar, 0); }, 1500);
+        }).catch(function (e) {
+            console.error(e);
+            setBar(bar, 0);
+            setStatus(st, 'err', errText(e));
+        }).then(function () {
+            sendBusy = false;
+            guardLeave();
+            $('encryptBtn').disabled = false;
+            $('btnGen').disabled = false;
+        });
+    }
+
+    /* ---------------- 解密 ---------------- */
+
+    function onDecrypt() {
+        if (recvBusy) return;
+        var key = $('secretKey').value;
+        var st = $('recvStatus');
+        var bar = $('recvBar');
+        var f = sftFile;
+
+        if (!f) { expandRecvSetup(); setStatus(st, 'err', '请先选择收到的 .sft 文件。'); return; }
+        if (!key) { keyError('请先在上方设置共用密钥。'); return; }
+
+        recvBusy = true;
+        guardLeave();
+        $('decryptBtn').disabled = true;
+        setStatus(st, 'info', '正在准备…');
+        setBar(bar, 1);
+
+        SFT.unpack(f, key, progressPrinter(bar, st, '正在解密')).then(function (res) {
+            setBar(bar, 0);
+            hideStatus(st);
+            renderResult(res, f.name);
+            collapseRecvSetup();
+        }).catch(function (e) {
+            console.error(e);
+            setBar(bar, 0);
+            expandRecvSetup();
+            setStatus(st, 'err', errText(e) + '（文件：' + f.name + '）');
+        }).then(function () {
+            recvBusy = false;
+            guardLeave();
+            $('decryptBtn').disabled = false;
+        });
+    }
+
+    function guardLeave() {
+        window.onbeforeunload = (sendBusy || recvBusy) ? function () { return '正在处理，离开会中断'; } : null;
+    }
+
+    /* ---------------- 结果渲染 ---------------- */
+
+    function revokeResult() {
+        for (var i = 0; i < resultUrls.length; i++) {
+            try { URL.revokeObjectURL(resultUrls[i]); } catch (e) { }
+        }
+        resultUrls = [];
+        resultImages = [];
+        clearViewerCache();
+    }
+
+    function renderResult(res, sourceName) {
+        revokeResult();
+        closeViewer();
+
+        var box = $('result');
+        box.innerHTML = '';
+
+        var entries = res.entries;
+        var videos = [], images = [], others = [];
+        entries.forEach(function (e) {
+            if (isVideoEntry(e)) videos.push(e);
+            else if (isImageEntry(e)) images.push(e);
+            else others.push(e);
+        });
+
+        var totalSize = 0;
+        entries.forEach(function (e) { totalSize += e.size; });
+
+        var head = document.createElement('div');
+        head.className = 'reshead';
+        head.textContent = '解密成功 · ' + (sourceName ? sourceName + ' · ' : '') +
+            entries.length + ' 个文件 · ' + fmtSize(totalSize);
+        box.appendChild(head);
+
+        videos.forEach(function (e) {
+            var wrap = document.createElement('div');
+            wrap.className = 'vwrap';
+            var t = document.createElement('div');
+            t.className = 'vname';
+            t.textContent = e.name + ' · ' + fmtSize(e.size);
+            var v = document.createElement('video');
+            v.controls = true;
+            v.setAttribute('playsinline', '');
+            v.setAttribute('webkit-playsinline', '');
+            v.preload = 'metadata';
+            v.src = URL.createObjectURL(e.blob);
+            resultUrls.push(v.src);
+            wrap.appendChild(t);
+            wrap.appendChild(v);
+            box.appendChild(wrap);
+        });
+
+        if (images.length) {
+            var grid = document.createElement('div');
+            grid.className = 'grid';
+            images.forEach(function (e, i) {
+                var cell = document.createElement('div');
+                cell.className = 'cell';
+                cell.setAttribute('data-i', String(i));
+                var ph = document.createElement('div');
+                ph.className = 'ph';
+                ph.textContent = '🖼';
+                cell.appendChild(ph);
+                var badge = document.createElement('span');
+                badge.className = 'badge';
+                badge.textContent = String(i + 1);
+                cell.appendChild(badge);
+                cell.addEventListener('click', function () { openViewer(i); });
+                grid.appendChild(cell);
+            });
+            box.appendChild(grid);
+            resultImages = images;
+            fillThumbs();
+        }
+
+        others.forEach(function (e) {
+            var row = document.createElement('div');
+            row.className = 'frow';
+            var ico = document.createElement('div');
+            ico.className = 'ico';
+            ico.textContent = '📄';
+            var mid = document.createElement('div');
+            mid.style.flex = '1';
+            mid.style.minWidth = '0';
+            var nm = document.createElement('div');
+            nm.className = 'nm';
+            nm.textContent = e.name;
+            nm.title = e.name;
+            var sz = document.createElement('div');
+            sz.className = 'sz';
+            sz.textContent = fmtSize(e.size) + (e.type ? ' · ' + e.type : '');
+            var note = document.createElement('div');
+            note.className = 'note';
+            note.textContent = '此格式无法在网页中预览';
+            mid.appendChild(nm);
+            mid.appendChild(sz);
+            mid.appendChild(note);
+            row.appendChild(ico);
+            row.appendChild(mid);
+            box.appendChild(row);
+        });
+
+        var clr = document.createElement('button');
+        clr.type = 'button';
+        clr.className = 'clr';
+        clr.textContent = '清除结果并释放内存';
+        clr.addEventListener('click', function () {
+            closeViewer();
+            revokeResult();
+            box.innerHTML = '';
+        });
+        box.appendChild(clr);
+    }
+
+    var fillRunning = false;
+
+    function fillThumbs() {
+        if (fillRunning) return;
+        fillRunning = true;
+        var i = 0;
+        function step() {
+            if (i >= resultImages.length) { fillRunning = false; return; }
+            var idx = i++;
+            var e = resultImages[idx];
+            var cell = $('result').querySelector('.cell[data-i="' + idx + '"]');
+            if (!cell) { setTimeout(step, 0); return; }
+
+            if (!canPreview(e)) {
+                var ph0 = cell.querySelector('.ph');
+                if (ph0) ph0.textContent = '🚫';
+                cell.classList.add('noprev');
+                cell.title = e.name + '（此格式无法在网页中预览）';
+                setTimeout(step, 0);
+                return;
+            }
+
+            if (!HAS_BITMAP) {
+                var direct = URL.createObjectURL(e.blob);
+                resultUrls.push(direct);
+                var imgD = document.createElement('img');
+                imgD.src = direct;
+                imgD.alt = e.name;
+                imgD.loading = 'lazy';
+                imgD.decoding = 'async';
+                var oldD = cell.querySelector('.ph, img');
+                if (oldD) cell.replaceChild(imgD, oldD);
+                setTimeout(step, 0);
+                return;
+            }
+
+            makeThumb(e.blob, 360).then(function (url) {
+                if (url) {
+                    resultUrls.push(url);
+                    var img = document.createElement('img');
+                    img.src = url;
+                    img.alt = e.name;
+                    img.decoding = 'async';
+                    var old = cell.querySelector('.ph, img');
+                    if (old) cell.replaceChild(img, old);
+                } else {
+                    var ph = cell.querySelector('.ph');
+                    if (ph) ph.textContent = '🚫';
+                    cell.classList.add('noprev');
+                }
+                setTimeout(step, 0);
+            });
+        }
+        step();
+    }
+
+    /* ---------------- 沉浸看图：滑动切换 + 双指缩放 ---------------- */
+
+    var viewerPos = 0;
+    var vcache = new Map();
+    var MAX_SCALE = 5;
+    var vz = { s: 1, x: 0, y: 0 };
+    var ptrs = new Map();
+    var gesture = null;
+    var lastTapAt = 0;
+
+    function clearViewerCache() {
+        vcache.forEach(function (u) { try { URL.revokeObjectURL(u); } catch (e) { } });
+        vcache.clear();
+    }
+
+    function vurl(i) {
+        if (i < 0 || i >= resultImages.length) return null;
+        if (vcache.has(i)) return vcache.get(i);
+        var u = URL.createObjectURL(resultImages[i].blob);
+        vcache.set(i, u);
+        return u;
+    }
+
+    function vprune(center) {
+        vcache.forEach(function (u, k) {
+            if (Math.abs(k - center) > 1) {
+                try { URL.revokeObjectURL(u); } catch (e) { }
+                vcache.delete(k);
+            }
+        });
+    }
+
+    function applyTransform() {
+        var img = $('viewerImg');
+        img.style.transform = 'translate3d(' + vz.x + 'px,' + vz.y + 'px,0) scale(' + vz.s + ')';
+    }
+
+    function resetZoom() {
+        vz.s = 1; vz.x = 0; vz.y = 0;
+        applyTransform();
+    }
+
+    function clampPan() {
+        var st = $('viewerStage'), img = $('viewerImg');
+        var w = st.clientWidth || 1, h = st.clientHeight || 1;
+        var nw = img.naturalWidth || 0, nh = img.naturalHeight || 0;
+        var iw = w, ih = h;
+        if (nw > 0 && nh > 0) {
+            var r = nw / nh;
+            if (w / h > r) { ih = h; iw = h * r; } else { iw = w; ih = w / r; }
+        }
+        var maxX = Math.max(0, (iw * vz.s - w) / 2);
+        var maxY = Math.max(0, (ih * vz.s - h) / 2);
+        vz.x = Math.min(maxX, Math.max(-maxX, vz.x));
+        vz.y = Math.min(maxY, Math.max(-maxY, vz.y));
+    }
+
+    function openViewer(pos) {
+        if (!resultImages.length) return;
+        if (pos < 0 || pos >= resultImages.length) return;
+        var e = resultImages[pos];
+        if (!canPreview(e)) return;
+
+        viewerPos = pos;
+        var u = vurl(pos);
+        $('viewerImg').src = u;
+        vurl(pos - 1); vurl(pos + 1);
+        vprune(pos);
+
+        $('viewerTitle').textContent = e.name;
+        $('viewerCount').textContent = (pos + 1) + ' / ' + resultImages.length;
+        $('viewerPrev').disabled = pos === 0;
+        $('viewerNext').disabled = pos === resultImages.length - 1;
+        $('viewer').classList.add('on');
+        document.body.style.overflow = 'hidden';
+        resetZoom();
+    }
+
+    function closeViewer() {
+        $('viewer').classList.remove('on');
+        $('viewerImg').removeAttribute('src');
+        document.body.style.overflow = '';
+        ptrs.clear();
+        gesture = null;
+        resetZoom();
+        clearViewerCache();
+    }
+
+    function dist(a, b) {
+        var dx = a.x - b.x, dy = a.y - b.y;
+        return Math.sqrt(dx * dx + dy * dy) || 1;
+    }
+
+    function onPtrDown(e) {
+        if (e.pointerType === 'mouse' && e.button !== 0) return;
+        ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        var st = $('viewerStage');
+        if (st.setPointerCapture) { try { st.setPointerCapture(e.pointerId); } catch (err) { } }
+
+        if (ptrs.size === 2) {
+            var p = Array.from(ptrs.values());
+            gesture = {
+                mode: 'pinch',
+                d0: dist(p[0], p[1]),
+                s0: vz.s,
+                x0: vz.x, y0: vz.y,
+                cx: (p[0].x + p[1].x) / 2,
+                cy: (p[0].y + p[1].y) / 2
+            };
+        } else if (ptrs.size === 1) {
+            gesture = {
+                mode: 'single',
+                x0: e.clientX, y0: e.clientY,
+                tx0: vz.x, ty0: vz.y,
+                moved: false, t0: Date.now()
+            };
+        }
+        if (e.cancelable) e.preventDefault();
+    }
+
+    function onPtrMove(e) {
+        if (!ptrs.has(e.pointerId)) return;
+        ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (!gesture) return;
+
+        if (ptrs.size === 2 && gesture.mode === 'pinch') {
+            var p = Array.from(ptrs.values());
+            var d = dist(p[0], p[1]);
+            var s = Math.min(MAX_SCALE, Math.max(1, gesture.s0 * (d / gesture.d0)));
+            var cx = (p[0].x + p[1].x) / 2, cy = (p[0].y + p[1].y) / 2;
+            vz.s = s;
+            vz.x = gesture.x0 + (cx - gesture.cx);
+            vz.y = gesture.y0 + (cy - gesture.cy);
+            clampPan();
+            applyTransform();
+        } else if (ptrs.size === 1 && (gesture.mode === 'single' || gesture.mode === 'pan')) {
+            var dx = e.clientX - gesture.x0, dy = e.clientY - gesture.y0;
+            if (Math.abs(dx) > 8 || Math.abs(dy) > 8) gesture.moved = true;
+            if (vz.s > 1.01) {
+                vz.x = gesture.tx0 + dx;
+                vz.y = gesture.ty0 + dy;
+                clampPan();
+                applyTransform();
+            } else {
+                // 未缩放：跟手横移一点作为反馈，松手再决定切图还是弹回
+                vz.x = Math.max(-70, Math.min(70, dx * 0.55));
+                applyTransform();
+            }
+        }
+        if (e.cancelable) e.preventDefault();
+    }
+
+    function onPtrUp(e) {
+        var last = ptrs.get(e.pointerId);
+        ptrs.delete(e.pointerId);
+
+        if (ptrs.size === 1) {
+            // 双指松掉一根：重建单指基准，避免画面跳变
+            var remain = Array.from(ptrs.values())[0];
+            gesture = { mode: 'pan', x0: remain.x, y0: remain.y, tx0: vz.x, ty0: vz.y, moved: true, t0: Date.now() };
+            return;
+        }
+        if (ptrs.size > 0) return;
+
+        var g = gesture;
+        gesture = null;
+        if (!g || !last) return;
+
+        if (g.mode === 'pinch') { clampPan(); applyTransform(); return; }
+
+        var dx = last.x - g.x0;
+
+        if (vz.s <= 1.01) {
+            if (dx <= -70 && viewerPos < resultImages.length - 1) { openViewer(viewerPos + 1); return; }
+            if (dx >= 70 && viewerPos > 0) { openViewer(viewerPos - 1); return; }
+            resetZoom();
+        } else {
+            clampPan();
+            applyTransform();
+        }
+
+        // 双击缩放
+        if (!g.moved && Date.now() - g.t0 < 300) {
+            var t = Date.now();
+            if (t - lastTapAt < 320) {
+                lastTapAt = 0;
+                if (vz.s > 1.01) { resetZoom(); }
+                else {
+                    var st = $('viewerStage');
+                    var rect = st.getBoundingClientRect ? st.getBoundingClientRect() : { left: 0, top: 0, width: st.clientWidth, height: st.clientHeight };
+                    var cx2 = last.x - rect.left - rect.width / 2;
+                    var cy2 = last.y - rect.top - rect.height / 2;
+                    vz.s = 2.5;
+                    vz.x = -cx2 * 1.5;
+                    vz.y = -cy2 * 1.5;
+                    clampPan();
+                    applyTransform();
+                }
+            } else {
+                lastTapAt = t;
+            }
+        }
+    }
+
+    function bindViewerGestures() {
+        var st = $('viewerStage');
+        if (!st || !window.PointerEvent) return;
+        st.addEventListener('pointerdown', onPtrDown);
+        st.addEventListener('pointermove', onPtrMove);
+        st.addEventListener('pointerup', onPtrUp);
+        st.addEventListener('pointercancel', onPtrUp);
+        st.addEventListener('gesturestart', function (e) { e.preventDefault(); });
+    }
+
+    /* ---------------- 设备自检 ---------------- */
+
+    function deviceCheck() {
+        if (!SFT) {
+            banner('核心脚本 <b>sft-core.js</b> 没有加载成功。请确认与 index.html 放在同一目录，然后刷新页面。', true);
+            return false;
+        }
+        var ok = true;
+        if (!(window.crypto && window.crypto.subtle)) {
+            banner('当前环境不支持 WebCrypto，无法加解密。<br>请用 <b>https 地址</b>（GitHub Pages 正常）或 localhost 打开，不要用 http://。', true);
+            ok = false;
+        }
+        if (!(window.crypto && window.crypto.getRandomValues)) {
+            banner('当前环境缺少安全随机数，不能用于加密。', true);
+            ok = false;
+        }
+        if (/MicroMessenger/i.test(navigator.userAgent)) {
+            banner('检测到微信内置浏览器：下载和解密预览都可能异常。<br>请点右上角「···」→「在浏览器打开」。');
+        } else if (/QQ\//i.test(navigator.userAgent) && !/Chrome/i.test(navigator.userAgent)) {
+            banner('检测到 QQ 内置浏览器：建议点右下角「···」→「在浏览器打开」。');
+        }
+        return ok;
+    }
+
+    /* ---------------- 页面内自检 ---------------- */
+
+    function runSelfTest() {
+        var out = document.createElement('pre');
+        out.className = 'selftest';
+        document.body.appendChild(out);
+        if (!SFT) { out.textContent = 'sft-core.js 未加载，无法自检。'; return; }
+        var pass = 0, fail = 0;
+        function log(s) { out.textContent += s + '\n'; }
+        function ok(c, label) {
+            if (c) { pass++; log('PASS  ' + label); }
+            else { fail++; log('FAIL  ' + label); }
+        }
+        function rand(n) {
+            var b = new Uint8Array(n);
+            for (var i = 0; i < n; i += 65536) crypto.getRandomValues(b.subarray(i, Math.min(i + 65536, n)));
+            return b;
+        }
+        function eq(a, b) {
+            if (a.length !== b.length) return false;
+            for (var i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+            return true;
+        }
+        var PASS = 'selftest-密钥-🔑';
+        var CASES = [0, 1, SFT.CHUNK_SIZE - 1, SFT.CHUNK_SIZE, SFT.CHUNK_SIZE + 1];
+
+        log('SFTA 自检开始 · chunk=' + SFT.CHUNK_SIZE + ' · iters=' + SFT.DEFAULT_ITERS);
+
+        (async function () {
+            for (var i = 0; i < CASES.length; i++) {
+                var size = CASES[i];
+                var data = rand(size);
+                var packed = await SFT.pack([{ name: 't.bin', type: 'application/octet-stream', blob: new Blob([data]) }], PASS);
+                var res = await SFT.unpack(packed, PASS);
+                var got = new Uint8Array(await res.entries[0].blob.arrayBuffer());
+                ok(eq(data, got), '往返 size=' + size + '  密文=' + packed.size + 'B');
+            }
+
+            var probeData = rand(200);
+            var probe = await SFT.pack([{ name: 'a.jpg', type: 'image/jpeg', blob: new Blob([probeData]) }], PASS);
+            var raw = new Uint8Array(await probe.arrayBuffer());
+            ok(String.fromCharCode(raw[0], raw[1], raw[2], raw[3]) === 'SFTA', 'magic 正确');
+            ok(raw[4] === 2, '版本号正确');
+
+            try { await SFT.unpack(probe, 'wrong-key-123'); ok(false, '错误密钥应失败'); }
+            catch (e) { ok(e.code === 'DECRYPT_FAILED', '错误密钥被正确拒绝'); }
+
+            var bad = raw.slice(); bad[bad.length - 1] ^= 0xff;
+            try { await SFT.unpack(new Blob([bad]), PASS); ok(false, '篡改应失败'); }
+            catch (e) { ok(true, '篡改被检出：' + e.code); }
+
+            var cut = raw.slice(0, raw.length - 30);
+            try { await SFT.unpack(new Blob([cut]), PASS); ok(false, '截断应失败'); }
+            catch (e) { ok(true, '截断被检出：' + e.code); }
+
+            var names = ['图2.jpg', '图10.jpg', '图1.jpg'];
+            var items = names.map(function (n) { return { name: n, type: 'image/jpeg', blob: new Blob([rand(500)]) }; });
+            var album = await SFT.pack(items, PASS);
+            var ar = await SFT.unpack(album, PASS);
+            ok(ar.entries.length === 3 && ar.entries[0].name === '图2.jpg' && ar.entries[2].name === '图1.jpg', '图集顺序与文件名保留');
+
+            log('');
+            log('===== ' + pass + ' passed, ' + fail + ' failed =====');
+            log(fail === 0 ? '本机浏览器通过全部检查。' : '存在失败项，请勿用于正式文件。');
+        })().catch(function (e) {
+            log('自检异常：' + (e && e.message ? e.message : e));
+        });
+    }
+
+    /* ---------------- 启动 ---------------- */
+
+    function boot() {
+        if (location.search.indexOf('selftest') !== -1) { runSelfTest(); return; }
+        if (!deviceCheck()) return;
+
+        readTheme();
+        applyTheme();
+
+        updateKeyChip();
+        setKeyPanel(!($('secretKey').value || ''));
+
+        $('themeBtn').addEventListener('click', toggleTheme);
+        $('keyChip').addEventListener('click', function () {
+            setKeyPanel($('keyPanel').hidden);
+            updateKeyChip();
+        });
+        $('secretKey').addEventListener('input', updateKeyChip);
+
+        $('tabSend').addEventListener('click', function () { switchTab('send'); });
+        $('tabRecv').addEventListener('click', function () { switchTab('recv'); });
+        switchTab('send');
+
+        $('mediaInput').addEventListener('change', function (ev) {
+            var files = Array.prototype.slice.call(ev.target.files || []);
+            ev.target.value = '';
+            addFiles(files);
+        });
+
+        $('sftInput').addEventListener('change', function (ev) {
+            var f = ev.target.files && ev.target.files[0];
+            ev.target.value = '';
+            if (f) setRecvFile(f);
+        });
+
+        $('sftRemove').addEventListener('click', clearRecvFile);
+        $('recvSetupToggle').addEventListener('click', function () {
+            expandRecvSetup();
+            setKeyPanel(true);
+        });
+
+        $('pickedList').addEventListener('click', function (ev) {
+            var btn = ev.target.closest ? ev.target.closest('button[data-act]') : null;
+            if (!btn || btn.disabled) return;
+            var row = btn.closest('.row');
+            var id = Number(row.getAttribute('data-id'));
+            var idx = -1;
+            for (var i = 0; i < picked.length; i++) if (picked[i].id === id) { idx = i; break; }
+            if (idx < 0) return;
+            var act = btn.getAttribute('data-act');
+            if (act === 'del') {
+                if (picked[idx].thumbUrl) URL.revokeObjectURL(picked[idx].thumbUrl);
+                picked.splice(idx, 1);
+                renderPicked();
+            } else if (act === 'up' && idx > 0) {
+                var a = picked[idx - 1]; picked[idx - 1] = picked[idx]; picked[idx] = a;
+                renderPicked();
+            } else if (act === 'down' && idx < picked.length - 1) {
+                var b = picked[idx + 1]; picked[idx + 1] = picked[idx]; picked[idx] = b;
+                renderPicked();
+            }
+        });
+
+        ['dragenter', 'dragover'].forEach(function (t) {
+            document.body.addEventListener(t, function (e) { e.preventDefault(); });
+        });
+        document.body.addEventListener('drop', function (e) {
+            e.preventDefault();
+            var files = (e.dataTransfer && e.dataTransfer.files)
+                ? Array.prototype.slice.call(e.dataTransfer.files) : [];
+            if (!files.length) return;
+            // 拖进来的是 .sft → 直接当作要解密的文件
+            if (files.length === 1 && /\.sft$/i.test(files[0].name)) {
+                switchTab('recv');
+                setRecvFile(files[0]);
+                return;
+            }
+            addFiles(files);
+            if (currentTab !== 'send') switchTab('send');
+        });
+
+        $('encryptBtn').addEventListener('click', onEncrypt);
+        $('decryptBtn').addEventListener('click', onDecrypt);
+        $('btnGen').addEventListener('click', genKey);
+        $('btnCopy').addEventListener('click', copyKey);
+        $('btnEye').addEventListener('click', toggleEye);
+
+        $('viewerClose').addEventListener('click', closeViewer);
+        $('viewerPrev').addEventListener('click', function () { if (viewerPos > 0) openViewer(viewerPos - 1); });
+        $('viewerNext').addEventListener('click', function () { if (viewerPos < resultImages.length - 1) openViewer(viewerPos + 1); });
+        bindViewerGestures();
+
+        document.addEventListener('keydown', function (e) {
+            if (!$('viewer').classList.contains('on')) return;
+            if (e.key === 'Escape') closeViewer();
+            else if (e.key === 'ArrowLeft' && viewerPos > 0) openViewer(viewerPos - 1);
+            else if (e.key === 'ArrowRight' && viewerPos < resultImages.length - 1) openViewer(viewerPos + 1);
+        });
+    }
+
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+    else boot();
+})();
+</script>
+</body>
+</html>
