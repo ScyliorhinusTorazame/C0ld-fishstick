@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#f7f9fc">
+<meta name="format-detection" content="telephone=no">
+<title>私密文件传输工具</title>
+<style>
+    :root {
+        --blue: #007aff;
+        --blue-dark: #0056b3;
+        --green: #34c759;
+        --green-dark: #248a3d;
+        --bg: #f7f9fc;
+        --line: #eef1f5;
+        --muted: #8a93a0;
+        --warn: #d97706;
+        --err: #d92c2c;
+    }
+    * {
+        box-sizing: border-box;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+        -webkit-tap-highlight-color: transparent;
+    }
+    body {
+        padding: 16px 16px calc(28px + env(safe-area-inset-bottom));
+        max-width: 560px;
+        margin: 0 auto;
+        background-color: var(--bg);
+        color: #333;
+        font-size: 15px;
+        line-height: 1.5;
+    }
+    h1 {
+        font-size: 20px;
+        margin: 4px 0 2px;
+        color: #222;
+        text-align: center;
+    }
+    .subtitle {
+        text-align: center;
+        font-size: 12px;
+        color: var(--muted);
+        margin-bottom: 14px;
+    }
+    .card {
+        background: #fff;
+        padding: 16px;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, .05);
+        margin-bottom: 16px;
+    }
+    h2 {
+        margin: 0 0 4px;
+        font-size: 17px;
+        color: #444;
+        border-bottom: 2px solid var(--line);
+        padding-bottom: 8px;
+    }
+    label {
+        display: block;
+        margin: 12px 0 6px;
+        font-weight: 600;
+        font-size: 13px;
+        color: #555;
+    }
+    input[type="password"], input[type="text"], input[type="file"] {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        font-size: 14px;
+        margin-bottom: 8px;
+        background: #fff;
+        color: #222;
+    }
+    input[type="file"] { padding: 8px; }
+    button {
+        width: 100%;
+        padding: 12px;
+        border: none;
+        border-radius: 6px;
+        background-color: var(--blue);
+        color: #fff;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background .2s, opacity .2s;
+        margin-top: 6px;
+        min-height: 46px;
+    }
+    button:active { background-color: var(--blue-dark); }
+    button:disabled { background-color: #c9ced6; cursor: not-allowed; }
+    .btn-green { background-color: var(--green); }
+    .btn-green:active { background-color: var(--green-dark); }
+    .keyrow { display: flex; gap: 8px; align-items: stretch; }
+    .keyrow input { flex: 1; margin-bottom: 0; min-width: 0; }
+    .keyrow button {
+        width: auto;
+        flex: 0 0 auto;
+        margin: 0;
+        padding: 0 9px;
+        font-size: 12.5px;
+        min-height: 42px;
+        background: #eef1f5;
+        color: #4a5160;
+        font-weight: 600;
+    }
+    .keyrow button:active { background: #dde3ea; }
+    .tip {
+        font-size: 12px;
+        color: var(--muted);
+        margin: 8px 0 0;
+        line-height: 1.6;
+    }
+    .tip b { color: #6b7280; }
+    .banner {
+        background: #fff7e6;
+        border: 1px solid #ffe0a3;
+        color: #8a5a00;
+        font-size: 12.5px;
+        padding: 10px 12px;
+        border-radius: 10px;
+        margin-bottom: 14px;
+        line-height: 1.6;
+        white-space: pre-line;
+    }
+    .banner.errb { background: #fdecec; border-color: #f7c4c4; color: #a12323; }
+    .list { margin-top: 10px; }
+    .row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        margin-bottom: 8px;
+        background: #fbfcfe;
+    }
+    .row .th, .row .ph {
+        width: 44px; height: 44px; flex: 0 0 44px;
+        border-radius: 8px; object-fit: cover;
+        background: #e9edf3; display: flex; align-items: center; justify-content: center;
+        font-size: 20px; color: #7c8698; overflow: hidden;
+    }
+    .row .mid { flex: 1; min-width: 0; }
+    .row .nm {
+        font-size: 13px; color: #333; font-weight: 500;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .row .sz { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .row .acts { display: flex; gap: 4px; flex: 0 0 auto; }
+    .row .acts button {
+        width: 30px; min-height: 30px; height: 30px; padding: 0; margin: 0;
+        font-size: 13px; background: #eef1f5; color: #4a5160; border-radius: 8px;
+        font-weight: 700;
+    }
+    .row .acts button:active { background: #dde3ea; }
+    .row .acts button:disabled { background: #f6f7f9; color: #c3c9d2; }
+    .row .acts button[data-act="del"] { color: #c0392b; }
+    .sum { font-size: 12.5px; color: var(--muted); margin: 4px 0 0; }
+    .sum.warn { color: var(--warn); }
+    .sum.bad { color: var(--err); font-weight: 600; }
+    .bar {
+        height: 8px; background: #e9edf3; border-radius: 99px;
+        overflow: hidden; margin: 10px 0; display: none;
+    }
+    .bar > i {
+        display: block; height: 100%; width: 0;
+        background: linear-gradient(90deg, var(--blue), var(--green));
+        transition: width .15s linear;
+    }
+    .status { display: none; font-size: 12.5px; line-height: 1.6; margin-top: 8px; word-break: break-all; }
+    .status.on { display: block; }
+    .status.ok { color: var(--green-dark); }
+    .status.err { color: var(--err); }
+    .status.info { color: var(--blue); }
+    .status.warn { color: var(--warn); }
+    .status { white-space: pre-line; }
+    .reshead {
+        font-size: 13px; color: var(--green-dark); font-weight: 600;
+        margin: 14px 0 10px; padding-top: 12px; border-top: 1px solid var(--line);
+    }
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .grid .cell {
+        position: relative; padding-top: 100%; border-radius: 8px; overflow: hidden;
+        background: #e9edf3; cursor: pointer;
+    }
+    .grid .cell > img, .grid .cell > .ph {
+        position: absolute; inset: 0; width: 100%; height: 100%;
+        object-fit: cover; display: flex; align-items: center; justify-content: center;
+        font-size: 18px; color: #7c8698;
+    }
+    .grid .cell .badge {
+        position: absolute; left: 4px; top: 4px; z-index: 2;
+        background: rgba(0, 0, 0, .45); color: #fff;
+        font-size: 10px; padding: 1px 5px; border-radius: 99px;
+    }
+    .grid .cell.noprev { cursor: default; background: #f0f2f6; }
+    .vwrap { margin-top: 10px; }
+    .vwrap .vname {
+        font-size: 12px; color: var(--muted); margin-bottom: 4px;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .vwrap video {
+        width: 100%; max-height: 60vh; border-radius: 10px; background: #000;
+        display: block;
+    }
+    .frow {
+        display: flex; align-items: center; gap: 10px; padding: 10px;
+        border: 1px solid var(--line); border-radius: 10px; margin-top: 8px; background: #fbfcfe;
+    }
+    .frow .ico { width: 34px; flex: 0 0 34px; text-align: center; font-size: 20px; }
+    .frow .nm { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .frow .sz { font-size: 11px; color: var(--muted); }
+    .frow .note { font-size: 11px; color: var(--warn); }
+    .clr {
+        width: auto; display: block; margin: 14px auto 0; padding: 6px 14px;
+        min-height: 0; background: none; color: var(--muted);
+        font-size: 12px; font-weight: 500; text-decoration: underline;
+    }
+    .clr:active { background: none; color: #555; }
+    /* 全屏看图 */
+    #viewer {
+        position: fixed; inset: 0; z-index: 99; background: rgba(0, 0, 0, .96);
+        display: none; flex-direction: column;
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+    #viewer.on { display: flex; }
+    #viewerBar {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 10px 14px; color: #fff; font-size: 13px; gap: 10px;
+    }
+    #viewerBar .t { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #ccc; }
+    #viewerBar button {
+        width: auto; min-height: 0; padding: 6px 12px; margin: 0;
+        background: rgba(255, 255, 255, .14); font-size: 13px; border-radius: 8px;
+    }
+    #viewerImg { flex: 1; width: 100%; min-height: 0; object-fit: contain; }
+    #viewerNav { display: flex; gap: 10px; padding: 10px 14px 14px; }
+    #viewerNav button { background: rgba(255, 255, 255, .14); }
+    .foot { text-align: center; font-size: 11px; color: #b3bac4; margin-top: 4px; }
+    pre.selftest {
+        background: #10151c; color: #d7e0ea; font-size: 12px; line-height: 1.5;
+        padding: 12px; border-radius: 10px; white-space: pre-wrap; word-break: break-all;
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+    }
+    @media (prefers-color-scheme: dark) {
+        /* 暂不做主题，仅避免系统深色下白色输入框刺眼 */
+        body { color-scheme: light; }
+    }
+</style>
+</head>
+<body>
+
+<h1>私密文件传输工具</h1>
+<div class="subtitle">本地加密 · 不经过任何服务器 · SFTA v2</div>
+
+<div id="banners"></div>
+
+<div class="card">
+    <h2>密钥设置</h2>
+    <label for="secretKey">共用密钥（双方必须一致）</label>
+    <div class="keyrow">
+        <input type="password" id="secretKey" placeholder="输入约定的密钥…" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <button type="button" id="btnEye">显示</button>
+        <button type="button" id="btnCopy">复制</button>
+        <button type="button" id="btnGen">生成</button>
+    </div>
+    <p class="tip">点「生成」得到一串随机密钥，点「复制」后通过另一条渠道发给对方。<b>至少 8 位</b>，建议直接用生成的。</p>
+</div>
+
+<div class="card">
+    <h2>1. 加密并下载（发送方）</h2>
+    <label for="mediaInput">选择图片 / 视频（可多选，图片按文件名自动排序）</label>
+    <input type="file" id="mediaInput" accept="image/*,video/*" multiple>
+
+    <div id="pickedList" class="list"></div>
+    <div id="sumLine" class="sum"></div>
+
+    <div class="bar" id="sendBar"><i></i></div>
+    <div class="status" id="sendStatus"></div>
+
+    <button class="btn-green" id="encryptBtn">加密并下载 .sft</button>
+    <p class="tip">
+        生成的 <b>.sft</b> 是一个整体文件，体积和原文件几乎一样（只多约 0.01%）。<br>
+        发送时请用微信/QQ 的<b>「文件」</b>方式发，<b>不要用「图片」方式</b>，否则会被压缩损坏。
+    </p>
+</div>
+
+<div class="card">
+    <h2>2. 解密查看（接收方）</h2>
+    <label for="sftInput">选择收到的 .sft 文件</label>
+    <input type="file" id="sftInput" accept=".sft,application/octet-stream">
+
+    <div class="bar" id="recvBar"><i></i></div>
+    <div class="status" id="recvStatus"></div>
+
+    <button id="decryptBtn">解密并查看</button>
+    <div id="result"></div>
+</div>
+
+<div class="foot">v2.0.0 · 仅在本机浏览器内加解密</div>
+
+<div id="viewer">
+    <div id="viewerBar">
+        <button type="button" id="viewerClose">关闭</button>
+        <span class="t" id="viewerTitle"></span>
+        <span id="viewerCount"></span>
+    </div>
+    <img id="viewerImg" alt="">
+    <div id="viewerNav">
+        <button type="button" id="viewerPrev">上一张</button>
+        <button type="button" id="viewerNext">下一张</button>
+    </div>
+</div>
+
+<script src="sft-core.js"></script>
+<script>
+(function () {
+    'use strict';
+
+    var $ = function (id) { return document.getElementById(id); };
+    var SFT = window.SFT;
+
+    var LIMIT_CONFIRM = 100 * 1024 * 1024;   // 超过要二次确认
+    var LIMIT_HARD = 300 * 1024 * 1024;      // 硬上限
+    var MAX_ENTRIES = 200;                   // 单次最多条目
+    var MIN_KEY_LEN = 8;
+    var THUMB_MAX_COUNT = 150;               // 最多生成多少张缩略图
+
+    var picked = [];
+    var pickedSeq = 0;
+    var sendBusy = false;
+    var recvBusy = false;
+    var resultUrls = [];
+    var resultImages = [];
+    var viewerPos = 0;
+    var viewerUrl = null;
+    var heicWarned = false;
+
+    var collator = (typeof Intl !== 'undefined' && Intl.Collator)
+        ? new Intl.Collator('zh-Hans-CN', { numeric: true, sensitivity: 'base' })
+        : null;
+
+    /* ---------------- 工具函数 ---------------- */
+
+    function fmtSize(n) {
+        if (n < 1024) return n + ' B';
+        var u = ['KB', 'MB', 'GB'], i = -1, v = n;
+        do { v /= 1024; i++; } while (v >= 1024 && i < u.length - 1);
+        return (v < 10 ? v.toFixed(1) : Math.round(v)) + ' ' + u[i];
+    }
+
+    function pad2(n) { return n < 10 ? '0' + n : '' + n; }
+
+    function stamp() {
+        var d = new Date();
+        return d.getFullYear() + pad2(d.getMonth() + 1) + pad2(d.getDate()) + '_' + pad2(d.getHours()) + pad2(d.getMinutes());
+    }
+
+    function yieldUI() { return new Promise(function (r) { setTimeout(r, 0); }); }
+
+    function setBar(el, pct) {
+        el.style.display = pct > 0 ? 'block' : 'none';
+        el.firstElementChild.style.width = Math.max(0, Math.min(100, pct || 0)) + '%';
+    }
+
+    function setStatus(el, cls, text) {
+        el.className = 'status on ' + (cls || 'info');
+        el.textContent = text;
+    }
+
+    function hideStatus(el) { el.className = 'status'; el.textContent = ''; }
+
+    function banner(html, isErr) {
+        var d = document.createElement('div');
+        d.className = 'banner' + (isErr ? ' errb' : '');
+        d.innerHTML = html;
+        $('banners').appendChild(d);
+    }
+
+    function ext(name) {
+        var m = /\.([a-z0-9]+)$/i.exec(name || '');
+        return m ? m[1].toLowerCase() : '';
+    }
+
+    var VIDEO_EXT = { mp4: 1, mov: 1, m4v: 1, webm: 1, '3gp': 1, mkv: 1, avi: 1 };
+    var IMAGE_EXT = { jpg: 1, jpeg: 1, png: 1, gif: 1, webp: 1, bmp: 1, heic: 1, heif: 1, avif: 1, tif: 1, tiff: 1 };
+    var NO_PREVIEW_EXT = { heic: 1, heif: 1, tif: 1, tiff: 1, avi: 1, mkv: 1 };
+
+    function guessType(name) {
+        var e = ext(name);
+        if (VIDEO_EXT[e]) return e === 'mov' ? 'video/quicktime' : 'video/' + e;
+        if (e === 'jpg' || e === 'jpeg') return 'image/jpeg';
+        if (IMAGE_EXT[e]) return 'image/' + e;
+        return '';
+    }
+
+    function isVideoEntry(e) {
+        return /^video\//i.test(e.type || '') || !!VIDEO_EXT[ext(e.name)];
+    }
+
+    function isImageEntry(e) {
+        return /^image\//i.test(e.type || '') || !!IMAGE_EXT[ext(e.name)];
+    }
+
+    function canPreview(e) {
+        if (NO_PREVIEW_EXT[ext(e.name)]) return false;
+        if (/heic|heif/i.test(e.type || '')) return false;
+        if (/video\//i.test(e.type || '') && !/mp4|m4v|webm|quicktime|3gpp/i.test(e.type || '')) return false;
+        return true;
+    }
+
+    /* ---------------- 缩略图（低内存） ---------------- */
+
+    var HAS_BITMAP = (typeof createImageBitmap === 'function');
+
+    function makeThumb(blob, max) {
+        if (!HAS_BITMAP) {
+            return Promise.resolve(null);
+        }
+        return createImageBitmap(blob, { resizeWidth: max, resizeQuality: 'low' }).then(function (bmp) {
+            var c = document.createElement('canvas');
+            c.width = bmp.width;
+            c.height = bmp.height;
+            c.getContext('2d').drawImage(bmp, 0, 0);
+            if (bmp.close) bmp.close();
+            return new Promise(function (res) {
+                try { c.toBlob(function (b) { res(b ? URL.createObjectURL(b) : null); }, 'image/jpeg', 0.72); }
+                catch (e) { res(null); }
+            });
+        }).catch(function () { return null; });
+    }
+
+    var thumbLoopRunning = false;
+
+    function thumbLoop() {
+        if (thumbLoopRunning) return;
+        thumbLoopRunning = true;
+        var i = 0, made = 0;
+        function step() {
+            while (i < picked.length) {
+                var it = picked[i];
+                if (it.thumbTried) { i++; continue; }
+                if (made >= THUMB_MAX_COUNT) { thumbLoopRunning = false; return; }
+                if (!isImageEntry(it)) { it.thumbTried = true; i++; continue; }
+                it.thumbTried = true;
+                made++;
+                var target = it;
+                makeThumb(target.file, 200).then(function (url) {
+                    if (url && picked.indexOf(target) !== -1) {
+                        target.thumbUrl = url;
+                        patchRowThumb(target);
+                    } else if (url) {
+                        URL.revokeObjectURL(url);
+                    }
+                    setTimeout(step, 0);
+                });
+                return;
+            }
+            thumbLoopRunning = false;
+        }
+        step();
+    }
+
+    function patchRowThumb(item) {
+        var row = $('pickedList').querySelector('.row[data-id="' + item.id + '"]');
+        if (!row) return;
+        var old = row.querySelector('.ph, .th');
+        if (!old) return;
+        var img = document.createElement('img');
+        img.className = 'th';
+        img.src = item.thumbUrl;
+        img.alt = '';
+        row.replaceChild(img, old);
+    }
+
+    /* ---------------- 选择文件 ---------------- */
+
+    function addFiles(files) {
+        var added = 0, skipped = 0, heic = 0;
+        for (var i = 0; i < files.length; i++) {
+            var f = files[i];
+            if (picked.length >= MAX_ENTRIES) { skipped++; continue; }
+            var dup = false;
+            for (var j = 0; j < picked.length; j++) {
+                if (picked[j].name === f.name && picked[j].size === f.size) { dup = true; break; }
+            }
+            if (dup) { skipped++; continue; }
+            var type = f.type || guessType(f.name);
+            if (IMAGE_EXT[ext(f.name)] && NO_PREVIEW_EXT[ext(f.name)]) heic++;
+            picked.push({
+                id: ++pickedSeq,
+                file: f,
+                name: f.name,
+                type: type,
+                size: f.size,
+                thumbUrl: null,
+                thumbTried: false
+            });
+            added++;
+        }
+
+        if (collator) picked.sort(function (a, b) { return collator.compare(a.name, b.name); });
+        else picked.sort(function (a, b) { return a.name < b.name ? -1 : a.name > b.name ? 1 : 0; });
+
+        renderPicked();
+        thumbLoop();
+
+        var st = $('sendStatus');
+        if (skipped) setStatus(st, 'warn', '已忽略 ' + skipped + ' 个重复或超量的文件。');
+        else if (added) hideStatus(st);
+
+        if (heic && !heicWarned) {
+            heicWarned = true;
+            banner('提示：检测到 <b>' + heic + '</b> 个 HEIC/HEIF 格式图片（iPhone 默认格式）。这类图片在安卓/电脑的浏览器里<b>无法预览</b>，对方解密后只能看到「无法预览」占位。\n建议：在 iPhone「设置 → 相机 → 格式」中改为「兼容性最佳」，或先导出为 JPG 再发送。', true);
+        }
+    }
+
+    function renderPicked() {
+        var box = $('pickedList');
+        box.innerHTML = '';
+
+        picked.forEach(function (it, i) {
+            var row = document.createElement('div');
+            row.className = 'row';
+            row.setAttribute('data-id', String(it.id));
+
+            if (it.thumbUrl) {
+                var img = document.createElement('img');
+                img.className = 'th';
+                img.src = it.thumbUrl;
+                img.alt = '';
+                row.appendChild(img);
+            } else {
+                var ph = document.createElement('div');
+                ph.className = 'ph';
+                ph.textContent = isVideoEntry(it) ? '🎬' : (isImageEntry(it) ? '🖼' : '📄');
+                row.appendChild(ph);
+            }
+
+            var mid = document.createElement('div');
+            mid.className = 'mid';
+            var nm = document.createElement('div');
+            nm.className = 'nm';
+            nm.textContent = it.name;
+            nm.title = it.name;
+            var sz = document.createElement('div');
+            sz.className = 'sz';
+            sz.textContent = fmtSize(it.size) + (it.type ? ' · ' + it.type : '');
+            mid.appendChild(nm);
+            mid.appendChild(sz);
+            row.appendChild(mid);
+
+            var acts = document.createElement('div');
+            acts.className = 'acts';
+            acts.appendChild(miniBtn('↑', 'up', i === 0));
+            acts.appendChild(miniBtn('↓', 'down', i === picked.length - 1));
+            acts.appendChild(miniBtn('✕', 'del', false));
+            row.appendChild(acts);
+
+            box.appendChild(row);
+        });
+
+        updateSum();
+    }
+
+    function miniBtn(text, act, disabled) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = text;
+        b.setAttribute('data-act', act);
+        b.disabled = !!disabled;
+        return b;
+    }
+
+    function updateSum() {
+        var el = $('sumLine');
+        if (!picked.length) { el.textContent = ''; el.className = 'sum'; return; }
+        var total = 0;
+        for (var i = 0; i < picked.length; i++) total += picked[i].size;
+        var msg = '共 ' + picked.length + ' 个文件 · 合计 ' + fmtSize(total);
+        if (total > LIMIT_HARD) {
+            el.className = 'sum bad';
+            msg += ' · 超过 ' + fmtSize(LIMIT_HARD) + ' 上限，请减量';
+        } else if (total > LIMIT_CONFIRM) {
+            el.className = 'sum warn';
+            msg += ' · 体积较大';
+        } else {
+            el.className = 'sum';
+        }
+        el.textContent = msg;
+    }
+
+    /* ---------------- 加密 ---------------- */
+
+    function downloadBlob(blob, name) {
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = name;
+        a.rel = 'noopener';
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function () {
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }, 300000);
+    }
+
+    function errText(e) {
+        if (e && e.code) return e.message || '处理失败';
+        if (e && e.name === 'QuotaExceededError') return '浏览器内存不足，请减少单次处理的文件数量或体积';
+        if (e && e.name === 'SecurityError') return '浏览器阻止了该操作，请检查是否在 https 下打开';
+        return '处理失败：' + (e && e.message ? e.message : String(e));
+    }
+
+    function onEncrypt() {
+        if (sendBusy) return;
+        var key = $('secretKey').value;
+        var st = $('sendStatus');
+        var bar = $('sendBar');
+
+        if (!picked.length) { setStatus(st, 'err', '请先选择要加密的图片或视频。'); return; }
+        if (key.length < MIN_KEY_LEN) { setStatus(st, 'err', '密钥至少 ' + MIN_KEY_LEN + ' 位，建议点「生成」。'); return; }
+
+        var total = 0;
+        for (var i = 0; i < picked.length; i++) total += picked[i].size;
+        if (total > LIMIT_HARD) {
+            setStatus(st, 'err', '合计 ' + fmtSize(total) + '，超过 ' + fmtSize(LIMIT_HARD) + ' 上限。请先压缩或分批发。');
+            return;
+        }
+        if (total > LIMIT_CONFIRM) {
+            if (!confirm('合计 ' + fmtSize(total) + '，体积较大。手机端解密预览可能比较吃力，建议用电脑端操作。\n\n继续吗？')) return;
+        }
+
+        sendBusy = true;
+        guardLeave();
+        $('encryptBtn').disabled = true;
+        $('btnGen').disabled = true;
+        setStatus(st, 'info', '正在准备…');
+        setBar(bar, 1);
+
+        var items = picked.map(function (it) {
+            return { name: it.name, type: it.type, blob: it.file };
+        });
+        var t0 = (window.performance && performance.now) ? performance.now() : Date.now();
+
+        SFT.pack(items, key, function (p) {
+            if (p.phase === 'kdf') { setStatus(st, 'info', '正在派生密钥（约 1 秒）…'); return; }
+            var pct = p.totalChunks ? (p.chunkDone / p.totalChunks) * 100 : 0;
+            setBar(bar, pct);
+            setStatus(st, 'info', '正在加密 ' + p.chunkDone + '/' + p.totalChunks + ' 块 · ' +
+                fmtSize(p.bytesDone) + ' / ' + fmtSize(p.totalBytes) + ' · ' + p.fileName);
+        }).then(function (blob) {
+            setBar(bar, 100);
+            var name = 'sft_' + stamp() + '.sft';
+            downloadBlob(blob, name);
+            var t1 = (window.performance && performance.now) ? performance.now() : Date.now();
+            setStatus(st, 'ok', '完成：' + name + '（' + fmtSize(blob.size) + '），已开始下载。用时 ' +
+                ((t1 - t0) / 1000).toFixed(1) + 's。\n发送时请选「文件」，不要用「图片」。');
+            setTimeout(function () { setBar(bar, 0); }, 1500);
+        }).catch(function (e) {
+            console.error(e);
+            setBar(bar, 0);
+            setStatus(st, 'err', errText(e));
+        }).then(function () {
+            sendBusy = false;
+            guardLeave();
+            $('encryptBtn').disabled = false;
+            $('btnGen').disabled = false;
+        });
+    }
+
+    /* ---------------- 解密 ---------------- */
+
+    function onDecrypt() {
+        if (recvBusy) return;
+        var input = $('sftInput');
+        var file = input.files && input.files[0];
+        var key = $('secretKey').value;
+        var st = $('recvStatus');
+        var bar = $('recvBar');
+
+        if (!file) { setStatus(st, 'err', '请先选择收到的 .sft 文件。'); return; }
+        if (!key) { setStatus(st, 'err', '请先在上方输入共用密钥。'); return; }
+
+        recvBusy = true;
+        guardLeave();
+        $('decryptBtn').disabled = true;
+        setStatus(st, 'info', '正在准备…');
+        setBar(bar, 1);
+
+        SFT.unpack(file, key, function (p) {
+            if (p.phase === 'kdf') { setStatus(st, 'info', '正在派生密钥（约 1 秒）…'); return; }
+            var pct = p.totalChunks ? (p.chunkDone / p.totalChunks) * 100 : 0;
+            setBar(bar, pct);
+            setStatus(st, 'info', '正在解密 ' + p.chunkDone + '/' + p.totalChunks + ' 块 · ' +
+                fmtSize(p.bytesDone) + ' / ' + fmtSize(p.totalBytes));
+        }).then(function (res) {
+            setBar(bar, 0);
+            hideStatus(st);
+            renderResult(res);
+            input.value = '';
+        }).catch(function (e) {
+            console.error(e);
+            setBar(bar, 0);
+            // 出错时保留已选文件，方便改密钥后直接重试
+            setStatus(st, 'err', errText(e) + '（文件：' + file.name + '）');
+        }).then(function () {
+            recvBusy = false;
+            guardLeave();
+            $('decryptBtn').disabled = false;
+        });
+    }
+
+    function guardLeave() {
+        window.onbeforeunload = (sendBusy || recvBusy) ? function () { return '正在处理，离开会中断'; } : null;
+    }
+
+    /* ---------------- 结果渲染 ---------------- */
+
+    function revokeResult() {
+        for (var i = 0; i < resultUrls.length; i++) {
+            try { URL.revokeObjectURL(resultUrls[i]); } catch (e) { }
+        }
+        resultUrls = [];
+        resultImages = [];
+        if (viewerUrl) { URL.revokeObjectURL(viewerUrl); viewerUrl = null; }
+    }
+
+    function renderResult(res) {
+        revokeResult();
+        closeViewer();
+
+        var box = $('result');
+        box.innerHTML = '';
+
+        var entries = res.entries;
+        var videos = [], images = [], others = [];
+        entries.forEach(function (e) {
+            if (isVideoEntry(e)) videos.push(e);
+            else if (isImageEntry(e)) images.push(e);
+            else others.push(e);
+        });
+
+        var totalSize = 0;
+        entries.forEach(function (e) { totalSize += e.size; });
+
+        var head = document.createElement('div');
+        head.className = 'reshead';
+        head.textContent = '解密成功 · ' + entries.length + ' 个文件 · ' + fmtSize(totalSize);
+        box.appendChild(head);
+
+        videos.forEach(function (e) {
+            var wrap = document.createElement('div');
+            wrap.className = 'vwrap';
+            var t = document.createElement('div');
+            t.className = 'vname';
+            t.textContent = e.name + ' · ' + fmtSize(e.size);
+            var v = document.createElement('video');
+            v.controls = true;
+            v.setAttribute('playsinline', '');
+            v.setAttribute('webkit-playsinline', '');
+            v.preload = 'metadata';
+            v.src = URL.createObjectURL(e.blob);
+            resultUrls.push(v.src);
+            wrap.appendChild(t);
+            wrap.appendChild(v);
+            box.appendChild(wrap);
+        });
+
+        if (images.length) {
+            var grid = document.createElement('div');
+            grid.className = 'grid';
+            images.forEach(function (e, i) {
+                var cell = document.createElement('div');
+                cell.className = 'cell';
+                cell.setAttribute('data-i', String(i));
+                var ph = document.createElement('div');
+                ph.className = 'ph';
+                ph.textContent = '🖼';
+                cell.appendChild(ph);
+                var badge = document.createElement('span');
+                badge.className = 'badge';
+                badge.textContent = String(i + 1);
+                cell.appendChild(badge);
+                cell.addEventListener('click', function () { openViewer(i); });
+                grid.appendChild(cell);
+            });
+            box.appendChild(grid);
+            resultImages = images;
+            fillThumbs();
+        }
+
+        others.forEach(function (e) {
+            var row = document.createElement('div');
+            row.className = 'frow';
+            var ico = document.createElement('div');
+            ico.className = 'ico';
+            ico.textContent = '📄';
+            var mid = document.createElement('div');
+            mid.style.flex = '1';
+            mid.style.minWidth = '0';
+            var nm = document.createElement('div');
+            nm.className = 'nm';
+            nm.textContent = e.name;
+            nm.title = e.name;
+            var sz = document.createElement('div');
+            sz.className = 'sz';
+            sz.textContent = fmtSize(e.size) + (e.type ? ' · ' + e.type : '');
+            var note = document.createElement('div');
+            note.className = 'note';
+            note.textContent = '此格式无法在网页中预览';
+            mid.appendChild(nm);
+            mid.appendChild(sz);
+            mid.appendChild(note);
+            row.appendChild(ico);
+            row.appendChild(mid);
+            box.appendChild(row);
+        });
+
+        var clr = document.createElement('button');
+        clr.type = 'button';
+        clr.className = 'clr';
+        clr.textContent = '清除结果并释放内存';
+        clr.addEventListener('click', function () {
+            closeViewer();
+            revokeResult();
+            box.innerHTML = '';
+        });
+        box.appendChild(clr);
+    }
+
+    var fillRunning = false;
+
+    function fillThumbs() {
+        if (fillRunning) return;
+        fillRunning = true;
+        var i = 0;
+        function step() {
+            if (i >= resultImages.length) { fillRunning = false; return; }
+            var idx = i++;
+            var e = resultImages[idx];
+            var cell = $('result').querySelector('.cell[data-i="' + idx + '"]');
+            if (!cell) { setTimeout(step, 0); return; }
+
+            if (!canPreview(e)) {
+                var ph0 = cell.querySelector('.ph');
+                if (ph0) { ph0.textContent = '🚫'; }
+                cell.classList.add('noprev');
+                cell.title = e.name + '（此格式无法在网页中预览）';
+                setTimeout(step, 0);
+                return;
+            }
+
+            // 老浏览器没有 createImageBitmap：直接挂原图（能看优先，内存其次）
+            if (!HAS_BITMAP) {
+                var direct = URL.createObjectURL(e.blob);
+                resultUrls.push(direct);
+                var imgD = document.createElement('img');
+                imgD.src = direct;
+                imgD.alt = e.name;
+                imgD.loading = 'lazy';
+                imgD.decoding = 'async';
+                var oldD = cell.querySelector('.ph, img');
+                if (oldD) cell.replaceChild(imgD, oldD);
+                setTimeout(step, 0);
+                return;
+            }
+
+            makeThumb(e.blob, 360).then(function (url) {
+                if (url) {
+                    resultUrls.push(url);
+                    var img = document.createElement('img');
+                    img.src = url;
+                    img.alt = e.name;
+                    img.decoding = 'async';
+                    var old = cell.querySelector('.ph, img');
+                    if (old) cell.replaceChild(img, old);
+                } else {
+                    var ph = cell.querySelector('.ph');
+                    if (ph) ph.textContent = '🚫';
+                    cell.classList.add('noprev');
+                }
+                setTimeout(step, 0);
+            });
+        }
+        step();
+    }
+
+    /* ---------------- 全屏看图 ---------------- */
+
+    function openViewer(pos) {
+        if (!resultImages.length) return;
+        if (pos < 0 || pos >= resultImages.length) return;
+        viewerPos = pos;
+        var e = resultImages[pos];
+        if (!canPreview(e)) return;
+        if (viewerUrl) { URL.revokeObjectURL(viewerUrl); viewerUrl = null; }
+        viewerUrl = URL.createObjectURL(e.blob);
+        $('viewerImg').src = viewerUrl;
+        $('viewerTitle').textContent = e.name;
+        $('viewerCount').textContent = (pos + 1) + ' / ' + resultImages.length;
+        $('viewer').classList.add('on');
+        $('viewerPrev').disabled = pos === 0;
+        $('viewerNext').disabled = pos === resultImages.length - 1;
+    }
+
+    function closeViewer() {
+        $('viewer').classList.remove('on');
+        $('viewerImg').removeAttribute('src');
+        if (viewerUrl) { URL.revokeObjectURL(viewerUrl); viewerUrl = null; }
+    }
+
+    /* ---------------- 密钥 ---------------- */
+
+    function genKey() {
+        var alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+        var b = new Uint8Array(20);
+        crypto.getRandomValues(b);
+        var s = '';
+        for (var i = 0; i < b.length; i++) s += alphabet.charAt(b[i] % alphabet.length);
+        $('secretKey').value = s.match(/.{1,5}/g).join('-');
+        $('secretKey').type = 'text';
+        $('btnEye').textContent = '隐藏';
+        setStatus($('sendStatus'), 'info', '已生成随机密钥并显示。复制后发给对方，两边必须一致。');
+    }
+
+    function toggleEye() {
+        var el = $('secretKey');
+        el.type = el.type === 'password' ? 'text' : 'password';
+        $('btnEye').textContent = el.type === 'password' ? '显示' : '隐藏';
+    }
+
+    function copyKey() {
+        var el = $('secretKey');
+        var v = el.value;
+        var st = $('sendStatus');
+        if (!v) { setStatus(st, 'err', '还没有密钥可复制。'); return; }
+        var done = function () { setStatus(st, 'ok', '密钥已复制，粘贴发给对方（记得换个渠道，别和 .sft 文件走同一个）。'); };
+        var legacy = function () {
+            var was = el.type;
+            el.type = 'text';
+            el.select();
+            try { el.setSelectionRange(0, el.value.length); } catch (e) { }
+            try { document.execCommand('copy'); } catch (e) { }
+            el.type = was;
+            done();
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(v).then(done).catch(legacy);
+        } else {
+            legacy();
+        }
+    }
+
+    /* ---------------- 设备自检 ---------------- */
+
+    function deviceCheck() {
+        if (!SFT) {
+            banner('核心脚本 <b>sft-core.js</b> 没有加载成功。请确认与 index.html 放在同一目录，然后刷新页面。', true);
+            return false;
+        }
+        var ok = true;
+        if (!(window.crypto && window.crypto.subtle)) {
+            banner('当前环境不支持 WebCrypto，无法加解密。<br>请用 <b>https 地址</b>（GitHub Pages 正常）或 localhost 打开，不要用 http://。', true);
+            ok = false;
+        }
+        if (!(window.crypto && window.crypto.getRandomValues)) {
+            banner('当前环境缺少安全随机数，不能用于加密。', true);
+            ok = false;
+        }
+        if (/MicroMessenger/i.test(navigator.userAgent)) {
+            banner('检测到微信内置浏览器：下载和解密预览都可能异常。<br>请点右上角「···」→「在浏览器打开」。');
+        } else if (/QQ\//i.test(navigator.userAgent) && !/Chrome/i.test(navigator.userAgent)) {
+            banner('检测到 QQ 内置浏览器：建议点右下角「···」→「在浏览器打开」。');
+        }
+        return ok;
+    }
+
+    /* ---------------- 页面内自检 ---------------- */
+
+    function runSelfTest() {
+        var out = document.createElement('pre');
+        out.className = 'selftest';
+        document.body.appendChild(out);
+        if (!SFT) { out.textContent = 'sft-core.js 未加载，无法自检。'; return; }
+        var pass = 0, fail = 0;
+        function log(s) { out.textContent += s + '\n'; }
+        function ok(c, label) {
+            if (c) { pass++; log('PASS  ' + label); }
+            else { fail++; log('FAIL  ' + label); }
+        }
+        function rand(n) {
+            var b = new Uint8Array(n);
+            for (var i = 0; i < n; i += 65536) crypto.getRandomValues(b.subarray(i, Math.min(i + 65536, n)));
+            return b;
+        }
+        function eq(a, b) {
+            if (a.length !== b.length) return false;
+            for (var i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+            return true;
+        }
+        var PASS = 'selftest-密钥-🔑';
+        var CASES = [0, 1, SFT.CHUNK_SIZE - 1, SFT.CHUNK_SIZE, SFT.CHUNK_SIZE + 1];
+
+        log('SFTA 自检开始 · chunk=' + SFT.CHUNK_SIZE + ' · iters=' + SFT.DEFAULT_ITERS);
+
+        (async function () {
+            for (var i = 0; i < CASES.length; i++) {
+                var size = CASES[i];
+                var data = rand(size);
+                var packed = await SFT.pack([{ name: 't.bin', type: 'application/octet-stream', blob: new Blob([data]) }], PASS);
+                var res = await SFT.unpack(packed, PASS);
+                var got = new Uint8Array(await res.entries[0].blob.arrayBuffer());
+                ok(eq(data, got), '往返 size=' + size + '  密文=' + packed.size + 'B');
+            }
+
+            var probeData = rand(200);
+            var probe = await SFT.pack([{ name: 'a.jpg', type: 'image/jpeg', blob: new Blob([probeData]) }], PASS);
+            var raw = new Uint8Array(await probe.arrayBuffer());
+            ok(String.fromCharCode(raw[0], raw[1], raw[2], raw[3]) === 'SFTA', 'magic 正确');
+            ok(raw[4] === 2, '版本号正确');
+
+            try { await SFT.unpack(probe, 'wrong-key-123'); ok(false, '错误密钥应失败'); }
+            catch (e) { ok(e.code === 'DECRYPT_FAILED', '错误密钥被正确拒绝'); }
+
+            var bad = raw.slice(); bad[bad.length - 1] ^= 0xff;
+            try { await SFT.unpack(new Blob([bad]), PASS); ok(false, '篡改应失败'); }
+            catch (e) { ok(true, '篡改被检出：' + e.code); }
+
+            var cut = raw.slice(0, raw.length - 30);
+            try { await SFT.unpack(new Blob([cut]), PASS); ok(false, '截断应失败'); }
+            catch (e) { ok(true, '截断被检出：' + e.code); }
+
+            var names = ['图2.jpg', '图10.jpg', '图1.jpg'];
+            var items = names.map(function (n) { return { name: n, type: 'image/jpeg', blob: new Blob([rand(500)]) }; });
+            var album = await SFT.pack(items, PASS);
+            var ar = await SFT.unpack(album, PASS);
+            ok(ar.entries.length === 3 && ar.entries[0].name === '图2.jpg' && ar.entries[2].name === '图1.jpg', '图集顺序与文件名保留');
+
+            log('');
+            log('===== ' + pass + ' passed, ' + fail + ' failed =====');
+            log(fail === 0 ? '本机浏览器通过全部检查。' : '存在失败项，请勿用于正式文件。');
+        })().catch(function (e) {
+            log('自检异常：' + (e && e.message ? e.message : e));
+        });
+    }
+
+    /* ---------------- 事件绑定 ---------------- */
+
+    function boot() {
+        if (location.search.indexOf('selftest') !== -1) { runSelfTest(); return; }
+        if (!deviceCheck()) return;
+
+        $('mediaInput').addEventListener('change', function (ev) {
+            var files = Array.prototype.slice.call(ev.target.files || []);
+            ev.target.value = '';
+            addFiles(files);
+        });
+
+        $('pickedList').addEventListener('click', function (ev) {
+            var btn = ev.target.closest ? ev.target.closest('button[data-act]') : null;
+            if (!btn || btn.disabled) return;
+            var row = btn.closest('.row');
+            var id = Number(row.getAttribute('data-id'));
+            var idx = -1;
+            for (var i = 0; i < picked.length; i++) if (picked[i].id === id) { idx = i; break; }
+            if (idx < 0) return;
+            var act = btn.getAttribute('data-act');
+            if (act === 'del') {
+                if (picked[idx].thumbUrl) URL.revokeObjectURL(picked[idx].thumbUrl);
+                picked.splice(idx, 1);
+                renderPicked();
+            } else if (act === 'up' && idx > 0) {
+                var a = picked[idx - 1]; picked[idx - 1] = picked[idx]; picked[idx] = a;
+                renderPicked();
+            } else if (act === 'down' && idx < picked.length - 1) {
+                var b = picked[idx + 1]; picked[idx + 1] = picked[idx]; picked[idx] = b;
+                renderPicked();
+            }
+        });
+
+        // 桌面端拖拽
+        var dropZone = document.body;
+        ['dragenter', 'dragover'].forEach(function (t) {
+            dropZone.addEventListener(t, function (e) { e.preventDefault(); });
+        });
+        dropZone.addEventListener('drop', function (e) {
+            e.preventDefault();
+            if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+                addFiles(Array.prototype.slice.call(e.dataTransfer.files));
+            }
+        });
+
+        $('encryptBtn').addEventListener('click', onEncrypt);
+        $('decryptBtn').addEventListener('click', onDecrypt);
+        $('btnGen').addEventListener('click', genKey);
+        $('btnCopy').addEventListener('click', copyKey);
+        $('btnEye').addEventListener('click', toggleEye);
+
+        $('viewerClose').addEventListener('click', closeViewer);
+        $('viewerPrev').addEventListener('click', function () { if (viewerPos > 0) openViewer(viewerPos - 1); });
+        $('viewerNext').addEventListener('click', function () { if (viewerPos < resultImages.length - 1) openViewer(viewerPos + 1); });
+        document.addEventListener('keydown', function (e) {
+            if (!$('viewer').classList.contains('on')) return;
+            if (e.key === 'Escape') closeViewer();
+            else if (e.key === 'ArrowLeft' && viewerPos > 0) openViewer(viewerPos - 1);
+            else if (e.key === 'ArrowRight' && viewerPos < resultImages.length - 1) openViewer(viewerPos + 1);
+        });
+    }
+
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+    else boot();
+})();
+</script>
+</body>
+</html>
